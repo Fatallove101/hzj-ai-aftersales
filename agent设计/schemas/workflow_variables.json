@@ -1,0 +1,182 @@
+{
+  "_comment": "千帆工作流变量清单。使用时按 name 在对应节点创建输入/输出变量；scope 说明变量可见范围。",
+  "version": "1.0",
+  "internal_working_language": "zh",
+  "variables": [
+    {
+      "name": "trace_id",
+      "type": "string",
+      "scope": "global",
+      "source": "代码节点生成",
+      "example": "tr_20260101_000001",
+      "note": "全链路唯一追踪 ID，所有节点输出都应带此字段，便于日志关联"
+    },
+    {
+      "name": "session_id",
+      "type": "string",
+      "scope": "global",
+      "source": "入参",
+      "example": "sess_8891"
+    },
+    {
+      "name": "merchant_id",
+      "type": "string",
+      "scope": "global",
+      "source": "入参",
+      "example": "hz_1024",
+      "note": "用于绑定该商户的知识库分区与话术偏好"
+    },
+    {
+      "name": "order_id",
+      "type": "string",
+      "scope": "global",
+      "source": "入参",
+      "example": "TS-8830012"
+    },
+    {
+      "name": "channel",
+      "type": "string",
+      "scope": "global",
+      "source": "入参",
+      "enum": ["tiktok_shop", "amazon", "temu", "shopee", "independent_site", "unknown"]
+    },
+    {
+      "name": "raw_text",
+      "type": "string",
+      "scope": "global",
+      "source": "入参",
+      "note": "客户原话。入库前必须 PII 脱敏，见 03-知识库与数据层设计.md 第 7 节"
+    },
+    {
+      "name": "source_lang",
+      "type": "string",
+      "scope": "global",
+      "source": "入参或语言检测节点",
+      "enum": ["zh", "en", "es", "de", "fr", "other"]
+    },
+    {
+      "name": "context_turns",
+      "type": "integer",
+      "scope": "global",
+      "source": "会话管理（最近 6 轮）",
+      "note": "意图识别实际使用最近 2 轮 + 本轮"
+    },
+    {
+      "name": "translation_json",
+      "type": "object",
+      "scope": "链路",
+      "producer": "翻译 Agent",
+      "schema": "schemas/translation.schema.json",
+      "key_field": "translated_text"
+    },
+    {
+      "name": "analysis_json",
+      "type": "object",
+      "scope": "链路",
+      "producer": "意图情绪 Agent",
+      "schema": "schemas/intent_emotion.schema.json",
+      "key_field": "primary_intent",
+      "note": "urgency 与 risk_flags 同时供主控转人工判定与话术风格选择使用"
+    },
+    {
+      "name": "query_rewrite_json",
+      "type": "object",
+      "scope": "链路",
+      "producer": "查询改写 Agent",
+      "schema": "schemas/query_rewrite.schema.json",
+      "key_field": "queries",
+      "note": "queries 绑定各知识库检索节点的 query；filters 绑定元数据过滤"
+    },
+    {
+      "name": "evidence_json",
+      "type": "array",
+      "scope": "链路",
+      "producer": "知识库检索节点 + 数据库节点（并行后合并）",
+      "note": "含 kb / doc_id / title / snippet / score / effective_date / stale"
+    },
+    {
+      "name": "order_snapshot_json",
+      "type": "object",
+      "scope": "链路",
+      "producer": "数据库节点",
+      "note": "订单状态、金额、物流轨迹、客户画像，用于个性化与高价值纠纷判定"
+    },
+    {
+      "name": "coverage",
+      "type": "string",
+      "scope": "链路",
+      "producer": "检索合并节点",
+      "enum": ["sufficient", "partial", "insufficient"],
+      "note": "insufficient 时禁止输出政策承诺型话术，且必须转人工"
+    },
+    {
+      "name": "candidates_json",
+      "type": "object",
+      "scope": "链路",
+      "producer": "话术生成 Agent",
+      "schema": "schemas/candidates.schema.json",
+      "key_field": "candidates"
+    },
+    {
+      "name": "compliance_json",
+      "type": "array",
+      "scope": "链路",
+      "producer": "合规校验 Agent（逐条候选，可用批处理/循环节点）",
+      "schema": "schemas/compliance.schema.json",
+      "key_field": "decision",
+      "note": "该节点失败时全部视为 reject，不放行"
+    },
+    {
+      "name": "degraded_nodes",
+      "type": "array",
+      "scope": "链路",
+      "producer": "各节点异常分支汇总",
+      "note": "取值示例：translate_agent / analysis_agent / rewrite_agent / retrieval / generate_agent / compliance_agent"
+    },
+    {
+      "name": "main_output_json",
+      "type": "object",
+      "scope": "输出",
+      "producer": "主控 Agent",
+      "schema": "schemas/main_output.schema.json",
+      "note": "返回给 Web 坐席工作台，同时落库为 qa_logs 的输入"
+    },
+    {
+      "name": "final_reply_target",
+      "type": "string",
+      "scope": "输出",
+      "producer": "主控 Agent（取自 final.reply_text_target）",
+      "note": "客服工作台一键复制的内容"
+    },
+    {
+      "name": "need_human",
+      "type": "boolean",
+      "scope": "输出",
+      "producer": "主控 Agent（取自 escalation.need_human）",
+      "note": "为 true 时工作台必须弹出交接包，不允许直接发送推荐话术"
+    }
+  ],
+  "external_context_required": [
+    {
+      "name": "customer_profile_json",
+      "source": "结构化数据库",
+      "fields": ["country", "vip_level", "order_count", "history_disputes", "lang"],
+      "note": "filters.country 的主要来源，跨境场景的关键字段，不可缺省为空"
+    },
+    {
+      "name": "glossary_json",
+      "source": "结构化数据库 glossary 表",
+      "note": "按输入文本预匹配命中的术语行，翻译 Agent 与话术生成 Agent 共用"
+    },
+    {
+      "name": "rules_json",
+      "source": "结构化数据库 compliance_rules 表",
+      "note": "按 filters.country / platform 过滤后的适用规则行，喂给合规校验 Agent"
+    },
+    {
+      "name": "merchant_categories",
+      "source": "结构化数据库 merchants 表",
+      "note": "该商户经营品类，作为 filters.category 的兜底值"
+    }
+  ]
+}

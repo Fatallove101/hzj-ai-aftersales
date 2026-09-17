@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DataLoopAgentOutput",
+  "description": "数据闭环 Agent（异步）输出契约。必须是聚合结果，不得包含可反查客户身份的字段。",
+  "type": "object",
+  "required": [
+    "period",
+    "metrics",
+    "knowledge_gaps",
+    "style_performance",
+    "compliance_feedback",
+    "optimization_suggestions",
+    "summary"
+  ],
+  "properties": {
+    "period": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "total_sessions",
+        "accept_rate",
+        "edit_rate",
+        "ignore_rate",
+        "satisfaction",
+        "reject_rate",
+        "insufficient_coverage_rate"
+      ],
+      "properties": {
+        "total_sessions": { "type": "integer" },
+        "accept_rate": { "type": "number" },
+        "edit_rate": { "type": "number" },
+        "ignore_rate": { "type": "number" },
+        "satisfaction": { "type": "number" },
+        "reject_rate": { "type": "number" },
+        "insufficient_coverage_rate": { "type": "number" },
+        "avg_latency_ms": { "type": "integer" }
+      }
+    },
+    "metrics_delta_vs_baseline": { "type": "object" },
+    "knowledge_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["gap_type", "kb", "description", "count"],
+        "properties": {
+          "gap_type": {
+            "type": "string",
+            "enum": ["zero_result", "low_score", "repeat_question", "insufficient_coverage"]
+          },
+          "kb": {
+            "type": "string",
+            "enum": ["policy_kb", "platform_rule_kb", "product_kb", "case_kb", "compliance_kb"]
+          },
+          "description": { "type": "string" },
+          "count": { "type": "integer" },
+          "suggested_doc": { "type": "string" },
+          "evidence_trace_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "style_performance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["intent", "style", "accept_rate", "samples"],
+        "properties": {
+          "intent": { "type": "string" },
+          "style": {
+            "type": "string",
+            "enum": ["安抚致歉", "专业答疑", "营销促单", "纠纷调解", "合规告知"]
+          },
+          "accept_rate": { "type": "number" },
+          "edit_rate": { "type": "number" },
+          "ignore_rate": { "type": "number" },
+          "samples": { "type": "integer" }
+        }
+      }
+    },
+    "compliance_feedback": {
+      "type": "object",
+      "properties": {
+        "top_rejected_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule_id": { "type": "string" },
+              "count": { "type": "integer" },
+              "suggested_pattern": {
+                "type": "string",
+                "description": "建议补充到规则库 pattern 列的正则表达式"
+              }
+            }
+          }
+        },
+        "top_revise_points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "span": { "type": "string" },
+              "count": { "type": "integer" },
+              "suggested_ban": { "type": "string" },
+              "evidence_trace_ids": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "stale_policies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "doc_id": { "type": "string" },
+              "title": { "type": "string" },
+              "effective_date": { "type": "string" },
+              "cited_count": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "glossary_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["term_zh", "reason"],
+        "properties": {
+          "term_zh": { "type": "string" },
+          "suggested_en": { "type": "string" },
+          "suggested_es": { "type": "string" },
+          "suggested_de": { "type": "string" },
+          "suggested_fr": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "optimization_suggestions": {
+      "type": "array",
+      "maxItems": 10,
+      "description": "上限 10 条——做不完的建议等于没建议",
+      "items": {
+        "type": "object",
+        "required": [
+          "action_id",
+          "priority",
+          "category",
+          "target",
+          "problem",
+          "suggestion",
+          "evidence_trace_ids"
+        ],
+        "properties": {
+          "action_id": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1", "P2"] },
+          "category": {
+            "type": "string",
+            "enum": ["knowledge_base", "prompt", "rule_base", "glossary", "policy_review", "ux"]
+          },
+          "target": {
+            "type": "string",
+            "description": "具体到哪里，如 prompts/04-...md 硬性约束第5条"
+          },
+          "problem": { "type": "string", "description": "带数据的观察" },
+          "suggestion": { "type": "string", "description": "可直接执行的动作" },
+          "evidence_trace_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": { "type": "string" }
+          },
+          "expected_impact": { "type": "string" }
+        }
+      }
+    },
+    "summary": { "type": "string", "description": "≤200 字结论：最严重的问题 + 最该做的一件事" }
+  }
+}

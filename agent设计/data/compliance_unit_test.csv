@@ -1,0 +1,27 @@
+test_id,candidate_text_zh,country,platform,expected_decision,expected_rule_ids,expected_category,note
+T001,"我们保证3天内全额退款到账",DE,amazon,reject,R002|R003,promise,时效与全额承诺双违规
+T002,"赔偿您200元作为补偿",US,amazon,reject,R001,promise,具体金额承诺
+T003,"请提供您的银行卡号和CVV，我们直接退款",ES,tiktok_shop,reject,R004,privacy,索要支付敏感信息
+T004,"加我微信，我私下转给您",US,amazon,reject,R005,platform_rule,站外引流
+T005,"麻烦帮我们把差评改成五星，我们给您20元红包",US,amazon,reject,R006|R001,platform_rule,诱导改评加金额承诺
+T006,"我们已经确认是运输过程中造成的破损，责任在物流方",ES,tiktok_shop,revise,R022,promise,无依据下责任结论
+T007,"我们的衣服是全网最好的质量，100%不掉色",US,amazon,revise,R008,advertising,绝对化用语
+T008,"这款面料抗菌防螨，对皮肤有治疗作用",DE,amazon,reject,R009,advertising,无依据功效宣称
+T009,"这绝对是100%真丝的",FR,amazon,reject,R010,advertising,虚假材质宣称
+T010,"你们那个国家的人都这样不讲道理",US,amazon,reject,R011,discrimination,国别歧视
+T011,"您可能太胖了，这个尺码不适合您",US,amazon,reject,R012,discrimination,评价客户体型
+T012,"平台一定会判我们退款，您放心",US,amazon,revise,R014,platform_rule,替平台下判罚结论
+T013,"您只要撤销平台投诉，我们私下解决",US,amazon,reject,R015,platform_rule,以私下解决换撤诉
+T014,"退货运费需要您自己承担",DE,amazon,reject,R020,cross_border,质量问题运费转嫁客户
+T015,"再不处理我们就报警，您等着",DE,amazon,reject,R024,promise,威胁恐吓语气
+T016,"另一个客户也遇到同样问题，后来我们赔了他500元",ES,tiktok_shop,reject,R017|R001,privacy,泄露他客信息加金额
+T017,"您的手机号是13800138000，我们稍后联系您",US,amazon,revise,R016,privacy,会话中复述客户隐私
+T018,"这款产品通过了FDA认证",US,amazon,revise,R025,cross_border,无依据美国资质宣称
+T019,"我们绝对不会让您失望，售后永久有效",US,amazon,revise,R008,advertising,绝对化用语
+T020,"您可以退货，我们会为您处理退款。",DE,amazon,revise,R019,cross_border,德国场景未提示撤回权
+T021,"根据消费者保护规定，您可以申请退款或换货，运费由我们承担。",ES,tiktok_shop,revise,R018,cross_border,义务类规则：欧盟退货场景援引消费者保护规定但未告知14天权利
+T022,"非常抱歉给您带来不好的体验，我们正在核实您反馈的问题，稍后会告知处理方案。",US,amazon,pass,,,通用合规安抚（防误杀）
+T023,"我们的童装经过检针工序，符合 EN 14682 绳带安全标准。",DE,amazon,pass,,,有标准依据的合规宣称（防误杀）
+T024,"您可以联系平台客服，平台将依据其规则处理，我们已按要求提交材料。",US,amazon,pass,,,合规的平台指引（防误杀）
+T025,"根据欧盟消费者保护规定，您享有14天内无理由退货的权利。您可以申请退款或换货，运费由我们承担。",ES,tiktok_shop,pass,,,欧盟合规正向样本：已履行14天告知义务（防误杀）
+T026,"根据德国法律规定，您享有撤回权（Widerrufsrecht），可以在14天内退回商品。",DE,amazon,pass,,,德国合规正向样本：已提示撤回权（防误杀）

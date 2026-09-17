@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IntentEmotionAgentOutput",
+  "description": "意图情绪 Agent 输出契约。标签 enum 必须与 data/intent_taxonomy.csv 保持一致。",
+  "type": "object",
+  "required": [
+    "intents",
+    "primary_intent",
+    "emotion",
+    "urgency",
+    "risk_flags",
+    "need_human_hint",
+    "suggested_style",
+    "reasoning_brief"
+  ],
+  "properties": {
+    "intents": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["label", "confidence"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "enum": [
+              "refund", "exchange", "logistics", "quality_defect", "color_diff",
+              "sizing", "negative_review", "repurchase", "product_info", "payment",
+              "customs", "invoice", "complaint_service", "other"
+            ]
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "primary_intent": {
+      "type": "string",
+      "enum": [
+        "refund", "exchange", "logistics", "quality_defect", "color_diff",
+        "sizing", "negative_review", "repurchase", "product_info", "payment",
+        "customs", "invoice", "complaint_service", "other"
+      ]
+    },
+    "emotion": {
+      "type": "object",
+      "required": ["polarity", "intensity", "signals"],
+      "properties": {
+        "polarity": { "type": "string", "enum": ["negative", "neutral", "positive"] },
+        "intensity": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "signals": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "urgency": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "risk_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "chargeback_risk", "platform_intervention_risk", "legal_risk",
+          "public_opinion_risk", "repeat_complaint", "minor_involved"
+        ]
+      }
+    },
+    "need_human_hint": { "type": "boolean" },
+    "suggested_style": {
+      "type": "string",
+      "enum": ["安抚致歉", "专业答疑", "营销促单", "纠纷调解", "合规告知"]
+    },
+    "reasoning_brief": { "type": "string" }
+  }
+}

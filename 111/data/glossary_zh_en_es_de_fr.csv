@@ -1,0 +1,47 @@
+term_id,term_zh,term_en,term_es,term_de,term_fr,category,note
+G001,连衣裙,dress,vestido,Kleid,robe,品类,常见跨境主推品类
+G002,针织衫,knitwear / sweater,jersey,Strickware,maille,品类,
+G003,童装,kidswear,ropa infantil,Kinderbekleidung,vêtements pour enfants,品类,涉儿童安全风险，注意风险标记
+G004,外套,coat / jacket,abrigo,Mantel / Jacke,manteau / veste,品类,
+G005,衬衫,shirt,camisa,Hemd,chemise,品类,
+G006,裤子,pants / trousers,pantalones,Hose,pantalon,品类,
+G007,面料,fabric,tejido,Stoff,tissu,材质,
+G008,里料,lining,forro,Futter,doublure,材质,
+G009,成分,composition,composición,Zusammensetzung,composition,材质,材质宣称必须与吊牌一致
+G010,色差,color deviation,diferencia de color,Farbabweichung,différence de couleur,质量问题,禁止译作 color difference
+G011,起球,pilling,formación de bolitas,Pilling,bouloches,质量问题,禁止译作 ball
+G012,掉色,color fading,decoloración,Ausbleichen,décoloration,质量问题,禁止译作 drop color
+G013,缩水,shrinkage,encogimiento,Einlaufen,rétrécissement,质量问题,
+G014,缩水率,shrinkage rate,tasa de encogimiento,Einlaufquote,taux de rétrécissement,质量问题,
+G015,做工,workmanship,confección,Verarbeitung,confection,质量问题,
+G016,线头,loose thread,hilo suelto,abstehender Faden,fil qui dépasse,质量问题,
+G017,开线,seam splitting,costura abierta,aufgeplatzte Naht,couture qui craque,质量问题,
+G018,破损,damage,daño,Beschädigung,dommage,质量问题,
+G019,污渍,stain,mancha,Fleck,tache,质量问题,高发投诉场景
+G020,异味,odor,olor,Geruch,odeur,质量问题,
+G021,版型,fit,corte,Passform,coupe,产品描述,
+G022,尺码,size,talla,Größe,taille,尺码,
+G023,尺码偏差,size deviation,desviación de talla,Größenabweichung,écart de taille,尺码,
+G024,尺码表,size chart,tabla de tallas,Größentabelle,guide des tailles,尺码,
+G025,退换货,returns and exchanges,devoluciones y cambios,Umtausch und Rückgabe,retours et échanges,售后,
+G026,退货,return,devolución,Rücksendung,retour,售后,
+G027,换货,exchange,cambio,Umtausch,échange,售后,
+G028,退款,refund,reembolso,Rückerstattung,remboursement,售后,
+G029,无理由退货,no-reason return,devolución sin motivo,Rückgabe ohne Angabe von Gründen,retour sans motif,政策,欧盟法定权利
+G030,撤回权,right of withdrawal,derecho de desistimiento,Widerrufsrecht,droit de rétractation,政策,德国场景必须提示
+G031,运费,shipping cost,gastos de envío,Versandkosten,frais de port,物流,
+G032,关税,customs duty,aranceles,Zoll,droits de douane,物流,
+G033,清关,customs clearance,despacho de aduanas,Zollabfertigung,dédouanement,物流,
+G034,物流延误,shipping delay,retraso en el envío,Lieferverzögerung,retard de livraison,物流,
+G035,拒付,chargeback,contracargo,Rückbuchung,impayé / chargeback,风险,高优先级风险信号
+G036,平台介入,platform intervention,intervención de la plataforma,Eingreifen der Plattform,intervention de la plateforme,风险,
+G037,纠纷,dispute,disputa,Streitfall,litige,风险,
+G038,索赔,claim,reclamación,Schadensersatzforderung,réclamation,风险,
+G039,差评,negative review,reseña negativa,negative Bewertung,avis négatif,评价,诱导改评属违规
+G040,复购,repurchase,recompra,Nachkauf,réachat,营销,
+G041,起订量,MOQ,cantidad mínima de pedido,Mindestbestellmenge,quantité minimale de commande,贸易,
+G042,打样,sampling,muestras,Musterung,échantillonnage,贸易,
+G043,检针,needle detection,detección de agujas,Nadelerkennung,détection d'aiguilles,质检,童装出口必备工序
+G044,后整理,finishing,acabado,Veredelung,finissage,工艺,
+G045,直播,livestream,transmisión en vivo,Livestream,diffusion en direct,渠道,
+G046,洗涤说明,care instructions,instrucciones de lavado,Pflegehinweise,instructions d'entretien,产品描述,

@@ -1,0 +1,27 @@
+# ===== 凭据类：绝对不允许入库 =====
+# API Key 用 Windows DPAPI 加密后存在 %APPDATA% 下，仓库里永远不该出现明文
+credentials*.dat
+credentials*.json
+*.key
+.env
+.env.*
+secrets*.json
+config.local.json
+*.secret
+
+# ===== 演示运行产物 =====
+111/logs/qa_logs.jsonl
+111/logs/tmp/
+111/logs/*.log
+111/samples/output_*.png
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+~$*.docx
+
+# ===== 临时文件 =====
+*.tmp
+*.bak

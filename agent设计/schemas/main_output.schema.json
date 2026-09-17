@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MainAgentOutput",
+  "description": "主控 Agent 最终 JSON 输出契约。客服工作台、日志、评测三处共用。",
+  "type": "object",
+  "required": [
+    "trace_id",
+    "session_id",
+    "merchant_id",
+    "order_id",
+    "channel",
+    "input",
+    "translation",
+    "analysis",
+    "retrieval",
+    "candidates",
+    "compliance",
+    "final",
+    "escalation",
+    "meta"
+  ],
+  "properties": {
+    "trace_id": { "type": "string", "description": "全链路唯一追踪 ID" },
+    "session_id": { "type": "string" },
+    "merchant_id": { "type": "string" },
+    "order_id": { "type": "string" },
+    "channel": {
+      "type": "string",
+      "enum": ["tiktok_shop", "amazon", "temu", "shopee", "independent_site", "unknown"]
+    },
+    "input": {
+      "type": "object",
+      "required": ["raw_text", "source_lang", "context_turns"],
+      "properties": {
+        "raw_text": { "type": "string" },
+        "source_lang": { "type": "string" },
+        "context_turns": { "type": "integer" }
+      }
+    },
+    "translation": {
+      "type": "object",
+      "required": ["translated_text", "target_lang", "quality_flag", "skipped"],
+      "properties": {
+        "translated_text": { "type": "string" },
+        "target_lang": { "type": "string" },
+        "glossary_hits": { "type": "array", "items": { "type": "string" } },
+        "quality_flag": { "type": "string", "enum": ["ok", "low_confidence"] },
+        "skipped": { "type": "boolean" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["intents", "primary_intent", "emotion", "urgency", "risk_flags"],
+      "properties": {
+        "intents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "confidence"],
+            "properties": {
+              "label": {
+                "type": "string",
+                "enum": [
+                  "refund", "exchange", "logistics", "quality_defect", "color_diff",
+                  "sizing", "negative_review", "repurchase", "product_info", "payment",
+                  "customs", "invoice", "complaint_service", "other"
+                ]
+              },
+              "confidence": { "type": "number" }
+            }
+          }
+        },
+        "primary_intent": {
+          "type": "string",
+          "enum": [
+            "refund", "exchange", "logistics", "quality_defect", "color_diff",
+            "sizing", "negative_review", "repurchase", "product_info", "payment",
+            "customs", "invoice", "complaint_service", "other"
+          ]
+        },
+        "emotion": {
+          "type": "object",
+          "required": ["polarity", "intensity", "signals"],
+          "properties": {
+            "polarity": { "type": "string", "enum": ["negative", "neutral", "positive"] },
+            "intensity": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "signals": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "urgency": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "risk_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "chargeback_risk", "platform_intervention_risk", "legal_risk",
+              "public_opinion_risk", "repeat_complaint", "minor_involved"
+            ]
+          }
+        },
+        "customer_profile": { "type": "object" }
+      }
+    },
+    "retrieval": {
+      "type": "object",
+      "required": ["queries", "filters", "evidence", "coverage"],
+      "properties": {
+        "queries": { "type": "array", "items": { "type": "string" } },
+        "filters": { "type": "object" },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kb", "doc_id", "title", "snippet", "score"],
+            "properties": {
+              "kb": {
+                "type": "string",
+                "enum": ["policy_kb", "platform_rule_kb", "product_kb", "case_kb", "compliance_kb"]
+              },
+              "doc_id": { "type": "string" },
+              "title": { "type": "string" },
+              "snippet": { "type": "string" },
+              "score": { "type": "number" },
+              "effective_date": { "type": "string" },
+              "stale": { "type": "boolean" }
+            }
+          }
+        },
+        "coverage": { "type": "string", "enum": ["sufficient", "partial", "insufficient"] }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "description": "仅包含存活候选（reject 的已移除）",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "style", "text_zh", "text_target", "cited_evidence"],
+        "properties": {
+          "candidate_id": { "type": "string" },
+          "style": {
+            "type": "string",
+            "enum": ["安抚致歉", "专业答疑", "营销促单", "纠纷调解", "合规告知"]
+          },
+          "text_zh": { "type": "string" },
+          "text_target": { "type": "string" },
+          "cited_evidence": { "type": "array", "items": { "type": "string" } },
+          "risk_notes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "compliance": {
+      "type": "array",
+      "description": "保留全部候选的校验记录（含 reject），供审计追溯",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "decision"],
+        "properties": {
+          "candidate_id": { "type": "string" },
+          "decision": { "type": "string", "enum": ["pass", "revise", "reject"] },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["rule_id", "category", "severity", "span", "reason", "suggestion"],
+              "properties": {
+                "rule_id": { "type": "string" },
+                "category": {
+                  "type": "string",
+                  "enum": ["promise", "privacy", "platform_rule", "advertising", "discrimination", "cross_border"]
+                },
+                "severity": { "type": "string", "enum": ["block", "revise", "warn"] },
+                "span": { "type": "string" },
+                "reason": { "type": "string" },
+                "suggestion": { "type": "string" }
+              }
+            }
+          },
+          "revised_text": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "final": {
+      "type": "object",
+      "required": ["recommended_candidate_id", "reply_text_zh", "reply_text_target", "next_actions"],
+      "properties": {
+        "recommended_candidate_id": {
+          "type": "string",
+          "description": "存活候选为 0 时为空字符串"
+        },
+        "reply_text_zh": { "type": "string" },
+        "reply_text_target": { "type": ["string", "null"] },
+        "ranking_basis": {
+          "type": "object",
+          "properties": {
+            "intent_fit": { "type": "number" },
+            "emotion_fit": { "type": "number" },
+            "evidence_strength": { "type": "number" },
+            "compliance_score": { "type": "number" }
+          }
+        },
+        "next_actions": { "type": "array", "items": { "type": "string" } },
+        "knowledge_gaps": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "required": ["need_human"],
+      "properties": {
+        "need_human": { "type": "boolean" },
+        "reason": {
+          "type": ["string", "null"],
+          "enum": [
+            "critical_urgency", "escalated_emotion", "high_value_dispute",
+            "insufficient_knowledge", "all_candidates_rejected", "platform_risk",
+            "legal_risk", "customer_request", "low_acceptance", "degraded_pipeline",
+            null
+          ]
+        },
+        "handoff_packet": {
+          "type": ["object", "null"],
+          "properties": {
+            "customer_text_raw": { "type": "string" },
+            "customer_text_zh": { "type": "string" },
+            "analysis_summary": { "type": "string" },
+            "policy_evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "doc_id": { "type": "string" },
+                  "title": { "type": "string" },
+                  "effective_date": { "type": "string" }
+                }
+              }
+            },
+            "rejected_candidates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "text_zh": { "type": "string" },
+                  "rule_id": { "type": "string" },
+                  "reason": { "type": "string" }
+                }
+              }
+            },
+            "suggested_next_step": { "type": "string" }
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["latency_ms", "degraded_nodes"],
+      "properties": {
+        "latency_ms": { "type": "integer" },
+        "model_versions": { "type": "object" },
+        "kb_versions": { "type": "object" },
+        "degraded_nodes": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

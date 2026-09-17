@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TranslationAgentOutput",
+  "description": "翻译 Agent 输出契约。用于千帆大模型节点的结构化输出配置。",
+  "type": "object",
+  "required": [
+    "translated_text",
+    "source_lang",
+    "target_lang",
+    "direction",
+    "glossary_hits",
+    "quality_flag",
+    "skipped"
+  ],
+  "properties": {
+    "translated_text": { "type": "string" },
+    "source_lang": {
+      "type": "string",
+      "enum": ["zh", "en", "es", "de", "fr", "other"]
+    },
+    "target_lang": {
+      "type": "string",
+      "enum": ["zh", "en", "es", "de", "fr"]
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["target2zh", "zh2target"]
+    },
+    "glossary_hits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_term", "target_term"],
+        "properties": {
+          "source_term": { "type": "string" },
+          "target_term": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "preserved_tokens": {
+      "type": "array",
+      "description": "原样保留的订单号/SKU/金额/尺码等",
+      "items": { "type": "string" }
+    },
+    "quality_flag": { "type": "string", "enum": ["ok", "low_confidence"] },
+    "quality_notes": { "type": "array", "items": { "type": "string" } },
+    "skipped": {
+      "type": "boolean",
+      "description": "原文已是目标语言时为 true，直接透传不消耗模型改写"
+    }
+  }
+}

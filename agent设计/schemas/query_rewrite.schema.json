@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryRewriteAgentOutput",
+  "description": "查询改写 Agent 输出契约。queries 直接绑定知识库检索节点的 query；filters 绑定元数据过滤。",
+  "type": "object",
+  "required": ["queries", "filters", "kb_route", "relaxed_plan", "rewrite_rationale"],
+  "properties": {
+    "queries": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": { "type": "string" }
+    },
+    "filters": {
+      "type": "object",
+      "required": ["country", "platform", "category", "lang", "policy_version", "effective_before"],
+      "properties": {
+        "country": {
+          "type": "string",
+          "description": "ISO 二字码，无法确定时填 UNKNOWN"
+        },
+        "region": {
+          "type": "string",
+          "description": "欧盟订单填 EU，其他留空"
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["tiktok_shop", "amazon", "temu", "shopee", "independent_site", "unknown"]
+        },
+        "category": {
+          "type": "string",
+          "description": "dress / knitwear / kidswear / coat / shirt / pants / unknown"
+        },
+        "lang": { "type": "string", "enum": ["en", "es", "de", "fr", "zh"] },
+        "policy_version": { "type": "string", "enum": ["latest"] },
+        "effective_before": { "type": "string", "enum": ["today"] }
+      }
+    },
+    "kb_route": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "enum": ["policy_kb", "platform_rule_kb", "product_kb", "case_kb", "compliance_kb"]
+      }
+    },
+    "relaxed_plan": {
+      "type": "string",
+      "description": "零结果时的放宽顺序说明，下游检索节点按此重试一次"
+    },
+    "rewrite_rationale": { "type": "string" }
+  }
+}

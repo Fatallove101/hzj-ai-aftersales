@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ComplianceAgentOutput",
+  "description": "合规校验 Agent 输出契约。逐条候选话术执行，decision 决定该话术能否进入最终输出。",
+  "type": "object",
+  "required": ["candidate_id", "decision", "violations", "confidence", "check_notes"],
+  "properties": {
+    "candidate_id": { "type": "string" },
+    "decision": {
+      "type": "string",
+      "enum": ["pass", "revise", "reject"],
+      "description": "pass 放行；revise 用 revised_text 替换后放行；reject 淘汰"
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "category", "severity", "span", "reason", "suggestion"],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "description": "规则库编号；无对应规则时用 GEN-<category>"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "promise",
+              "privacy",
+              "platform_rule",
+              "advertising",
+              "discrimination",
+              "cross_border"
+            ]
+          },
+          "severity": { "type": "string", "enum": ["block", "revise", "warn"] },
+          "span": {
+            "type": "string",
+            "description": "原文中触发违规的逐字片段，禁止改写或概括"
+          },
+          "reason": { "type": "string", "description": "≤50 字" },
+          "suggestion": { "type": "string", "description": "≤50 字，可直接操作" }
+        }
+      }
+    },
+    "revised_text": {
+      "type": ["string", "null"],
+      "description": "decision=revise 时必填；最小改动，只改违规处"
+    },
+    "revised_text_target": {
+      "type": ["string", "null"],
+      "description": "修订后的目标语文本；无法可靠产出时填 null"
+    },
+    "cross_border_check": {
+      "type": "object",
+      "properties": {
+        "country": { "type": "string" },
+        "required_disclosures": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_disclosures": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "check_notes": { "type": "string" }
+  }
+}

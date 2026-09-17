@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>跨境售后 AI 话术助手 · 坐席工作台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">AI</span>
+    <div>
+      <div class="brand-title">跨境售后 AI 话术助手</div>
+      <div class="brand-sub">汉正街 · 坐席工作台（本地演示）</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge badge-mode" id="modeBadge">本地规则引擎</span>
+    <span class="badge" id="kbBadge">知识库加载中…</span>
+    <button class="btn ghost" id="btnStats">数据闭环</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ 左：输入 ============ -->
+  <section class="col">
+    <div class="card">
+      <h2><span class="step">1</span>读取对话 · 自动读屏</h2>
+      <div class="row">
+        <button class="btn primary" id="btnCapture">▶ 开始自动读屏</button>
+        <select id="ocrLang" class="sel sel-sm" title="OCR 语言">
+          <option value="">自动 (英+中)</option>
+          <option value="en-US">English</option>
+          <option value="zh-Hans-CN">简体中文</option>
+        </select>
+      </div>
+      <div class="preview" id="preview">
+        <div class="preview-empty">未捕获画面<br><span>点击「开始自动读屏」后选择你的客服窗口</span></div>
+      </div>
+      <div class="hint">🔒 截图只在本机做 OCR，不会上传到任何服务器；只有识别出的文字会送到分析引擎。</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">2</span>或：粘贴 / 输入对话</h2>
+      <textarea id="chatText" placeholder="把客户和你的对话粘贴到这里（支持中/英/西/德/法）&#10;例：The dress arrived with stains and I want my money back"></textarea>
+      <div class="row">
+        <button class="btn ghost" id="btnDemo">填充演示样本</button>
+        <button class="btn primary" id="btnAnalyze">分析并生成话术</button>
+      </div>
+      <div class="hint">提示：在截图区域按 <b>Ctrl+V</b> 可直接粘贴剪贴板里的截图。</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">3</span>订单上下文</h2>
+      <div class="ctx-grid">
+        <label>客户所在国家
+          <select id="selCountry" class="sel">
+            <option value="UNKNOWN">未知（保守：强制转人工）</option>
+            <option value="ES">🇪🇸 西班牙</option>
+            <option value="DE">🇩🇪 德国</option>
+            <option value="FR">🇫🇷 法国</option>
+            <option value="IT">🇮🇹 意大利</option>
+            <option value="US">🇺🇸 美国</option>
+            <option value="GB">🇬🇧 英国</option>
+            <option value="NL">🇳🇱 荷兰</option>
+          </select>
+        </label>
+        <label>渠道平台
+          <select id="selPlatform" class="sel">
+            <option value="unknown">未知</option>
+            <option value="tiktok_shop">TikTok Shop</option>
+            <option value="amazon">Amazon</option>
+            <option value="temu">Temu</option>
+            <option value="shopee">Shopee</option>
+            <option value="independent_site">独立站</option>
+          </select>
+        </label>
+        <label>商品品类
+          <select id="selCategory" class="sel">
+            <option value="unknown">未知</option>
+            <option value="dress">连衣裙</option>
+            <option value="knitwear">针织衫</option>
+            <option value="kidswear">童装</option>
+            <option value="coat">外套</option>
+            <option value="shirt">衬衫</option>
+            <option value="pants">裤子</option>
+          </select>
+        </label>
+        <label>复制时的目标语言
+          <select id="selTarget" class="sel">
+            <option value="en">English（英文）</option>
+            <option value="es">Español（西语）</option>
+            <option value="zh">中文</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 中：候选话术 ============ -->
+  <section class="col col-wide">
+    <div class="card card-flush">
+      <h2 class="pad"><span class="step">4</span>候选话术 <span class="sub" id="candMeta"></span></h2>
+      <div id="candidates">
+        <div class="empty-state">还没有生成话术<br><span>先在左侧点击「分析并生成话术」</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 右：分析结果 ============ -->
+  <section class="col">
+    <div class="card card-flush">
+      <h2 class="pad"><span class="step">5</span>分析结果</h2>
+      <div id="analysis">
+        <div class="empty-state">等待分析…</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal"><div class="modal-box"><div class="modal-head"><h3 id="modalTitle"></h3><button class="btn ghost sm" id="modalClose">关闭</button></div><div id="modalBody" class="modal-body"></div></div></div>
+
+<script src="app.js"></script>
+</body>
+</html>

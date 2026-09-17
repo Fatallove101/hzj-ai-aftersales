@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TalkingPointsAgentOutput",
+  "description": "话术生成 Agent 输出契约。candidates 最多 3 条，风格必须互不相同。",
+  "type": "object",
+  "required": ["candidates", "generation_notes"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "candidate_id",
+          "style",
+          "text_zh",
+          "text_target",
+          "cited_evidence",
+          "risk_notes",
+          "unsupported"
+        ],
+        "properties": {
+          "candidate_id": { "type": "string", "enum": ["c1", "c2", "c3"] },
+          "style": {
+            "type": "string",
+            "enum": ["安抚致歉", "专业答疑", "营销促单", "纠纷调解", "合规告知"]
+          },
+          "text_zh": { "type": "string", "description": "中文话术，≤200 字" },
+          "text_target": { "type": "string", "description": "客户语言话术，≤120 词" },
+          "cited_evidence": {
+            "type": "array",
+            "description": "引用的 evidence doc_id；无依据时为空数组",
+            "items": { "type": "string" }
+          },
+          "risk_notes": {
+            "type": "array",
+            "description": "该条话术自身可能的风险点，写给人看",
+            "items": { "type": "string" }
+          },
+          "unsupported": {
+            "type": "boolean",
+            "description": "true 表示无政策/案例支撑，仅为通用安抚"
+          },
+          "next_action_hint": {
+            "type": "string",
+            "description": "这条话术之后客服应做的一件事，≤20 字"
+          }
+        }
+      }
+    },
+    "generation_notes": { "type": "string" }
+  }
+}
