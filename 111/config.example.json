@@ -1,0 +1,33 @@
+{
+  "_comment": "复制本文件为 config.local.json 后修改。config.local.json 已被 .gitignore 忽略，不会进仓库。",
+  "_security": "本文件只放非密钥配置。API Key 请用 tools\\set-api-key.ps1 存进 Windows DPAPI 加密库，不要写在这里。",
+
+  "model": {
+    "provider": "local",
+
+    "_provider_说明": "local = 纯本地规则引擎（默认，不发起任何外部请求）；qianfan = 调用千帆模型",
+
+    "endpoint": "",
+    "_endpoint_说明": "千帆应用的调用地址。请从控制台「应用发布」页复制，不要照抄示例。",
+
+    "model": "",
+    "_model_说明": "模型名称，如 ernie-4.5 / ernie-5.0 等，以控制台实际可选列表为准。",
+
+    "timeout": 30,
+
+    "_接入步骤": [
+      "1. 在千帆控制台创建应用并发布，拿到调用地址",
+      "2. 把上面的 provider 改成 qianfan，填好 endpoint 和 model",
+      "3. 运行 powershell -ExecutionPolicy Bypass -File tools\\set-api-key.ps1 存一次密钥",
+      "4. 运行 powershell -ExecutionPolicy Bypass -File tools\\test-model.ps1 -DryRun 核对请求形状",
+      "5. 重启 server.ps1，界面右上角会显示模型状态"
+    ]
+  },
+
+  "reader": {
+    "_comment": "读取方式开关，可按需关闭",
+    "enable_uia": true,
+    "enable_clipboard": true,
+    "enable_ocr": true
+  }
+}

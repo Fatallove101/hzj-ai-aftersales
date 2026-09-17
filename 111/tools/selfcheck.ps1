@@ -13,8 +13,10 @@ $Root   = Split-Path -Parent $PSScriptRoot
 $DataDir = Join-Path $Root 'data'
 
 . (Join-Path $Root 'engine\rules.ps1')
+. (Join-Path $Root 'engine\llm.ps1')
 . (Join-Path $Root 'engine\pipeline.ps1')
 [void](Initialize-KnowledgeBase -DataDir $DataDir)
+[void](Initialize-Llm -Root $Root)
 
 $fail = 0
 

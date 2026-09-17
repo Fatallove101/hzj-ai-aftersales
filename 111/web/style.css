@@ -185,6 +185,34 @@ textarea:focus,.sel:focus{outline:none; border-color:var(--acc)}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
 
+/* ---------- 读取方式切换 ---------- */
+.tabs{
+  display:flex; gap:4px; background:#11151c; padding:4px; border-radius:9px;
+  border:1px solid var(--line); margin-bottom:12px;
+}
+.tab{
+  flex:1; border:none; background:transparent; color:var(--tx3); cursor:pointer;
+  padding:7px 4px; border-radius:6px; font-size:12px; font-family:inherit; transition:.15s;
+  white-space:nowrap;
+}
+.tab:hover{color:var(--tx2); background:rgba(255,255,255,.03)}
+.tab.active{background:var(--acc); color:#fff; font-weight:600}
+.pane.hidden{display:none}
+.pane{animation:fade .18s ease}
+@keyframes fade{from{opacity:0; transform:translateY(-3px)} to{opacity:1; transform:none}}
+
+.read-status{
+  margin-top:10px; font-size:11.5px; color:var(--tx3); line-height:1.6;
+  padding:8px 10px; border-radius:7px; background:rgba(255,255,255,.02);
+  border-left:3px solid var(--line); display:none;
+}
+.read-status:not(:empty){display:block}
+.read-status.ok{border-left-color:var(--ok); color:#a7d8b8}
+.read-status.err{border-left-color:var(--bad); color:#fca5a5}
+
+.badge-model{background:rgba(148,163,184,.14); color:#cbd5e1}
+.badge-model.on{background:rgba(34,197,94,.15); color:#86efac; border-color:rgba(34,197,94,.35)}
+
 @media (max-width:1280px){
   .layout{grid-template-columns:300px minmax(360px,1fr) 320px; gap:10px; padding:10px}
 }

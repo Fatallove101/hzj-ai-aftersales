@@ -420,6 +420,57 @@ function New-Candidates {
 }
 
 # ---------------------------------------------------------------------
+# 把模型返回的 candidates 归一化成内部结构
+#   模型输出字段可能与契约有出入（缺字段、多字段、类型不对），
+#   这里做一次兜底，保证下游合规校验与前端渲染拿到的一定是完整结构。
+# ---------------------------------------------------------------------
+function ConvertFrom-ModelCandidates {
+  param($Raw, $Retrieval)
+  $out = @()
+  $i = 0
+  foreach ($c in $Raw) {
+    $i++
+    $cid = "c$i"
+    if ($c.PSObject.Properties.Name -contains 'candidate_id' -and -not [string]::IsNullOrWhiteSpace([string]$c.candidate_id)) {
+      $cid = [string]$c.candidate_id
+    }
+    $style = ''
+    if ($c.PSObject.Properties.Name -contains 'style') { $style = [string]$c.style }
+    $zh = ''
+    if ($c.PSObject.Properties.Name -contains 'text_zh') { $zh = [string]$c.text_zh }
+    $tgt = ''
+    if ($c.PSObject.Properties.Name -contains 'text_target') { $tgt = [string]$c.text_target }
+    elseif ($c.PSObject.Properties.Name -contains 'text_en') { $tgt = [string]$c.text_en }
+
+    $cited = @()
+    if ($c.PSObject.Properties.Name -contains 'cited_evidence') { $cited = @($c.cited_evidence) }
+    if ($cited.Count -eq 0) { $cited = @($Retrieval.evidence | Select-Object -First 2 | ForEach-Object { $_.doc_id }) }
+
+    $notes = @()
+    if ($c.PSObject.Properties.Name -contains 'risk_notes') { $notes = @($c.risk_notes) }
+
+    $unsup = ($Retrieval.coverage -eq 'insufficient')
+    if ($c.PSObject.Properties.Name -contains 'unsupported') { $unsup = [bool]$c.unsupported }
+
+    $next = ''
+    if ($c.PSObject.Properties.Name -contains 'next_action_hint') { $next = [string]$c.next_action_hint }
+
+    $out += [pscustomobject]@{
+      candidate_id     = $cid
+      style            = $style
+      text_zh          = $zh
+      text_en          = $tgt
+      text_es          = ''
+      cited_evidence   = $cited
+      risk_notes       = $notes
+      unsupported      = $unsup
+      next_action_hint = $next
+    }
+  }
+  return $out
+}
+
+# ---------------------------------------------------------------------
 # 主控：串流程 + 汇总 + 转人工判定
 # ---------------------------------------------------------------------
 function Invoke-Pipeline {
@@ -432,9 +483,22 @@ function Invoke-Pipeline {
     [string]$OcrLanguage = ''
   )
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
+  $modelUsed = @()
 
   # --- A1 语言识别 ---
   $lang = Get-LanguageGuess -Text $Text
+
+  # --- A1' 翻译：若已接入模型则用模型，否则走本地术语命中 ---
+  # Invoke-LLM 在 provider=local 或未配密钥时返回 $null，链路自动回退，不会断
+  $modelTranslation = $null
+  if ($lang -ne 'zh') {
+    $modelTranslation = Invoke-LLM -Task 'translate' -Params @{
+      system_prompt = (Get-AgentPrompt -Name 'translate')
+      text          = $Text
+      temperature   = 0.1
+    }
+    if ($modelTranslation) { $modelUsed += 'translate(模型)' }
+  }
 
   # --- A2 意图情绪 ---
   $analysis = Get-IntentAnalysis -Text $Text -Country $Country
@@ -451,8 +515,32 @@ function Invoke-Pipeline {
   if ($lang -eq 'zh') { $glossaryHits = @(Get-GlossaryHits -Text $Text) }
   else                { $glossaryHits = @(Get-GlossaryHitsByForeign -Text $Text) }
 
-  # --- A4 话术生成 ---
-  $candidates = @(New-Candidates -Analysis $analysis -Retrieval $retrieval -Rewrite $rewrite -Country $Country)
+  # --- A4 话术生成：优先模型，失败/未接入则回退模板 ---
+  $candidates = @()
+  $generatedBy = 'local-template'
+  $modelGen = $null
+  if ((Get-ModelConfig).provider -ne 'local') {
+    $ctxLines = @()
+    $ctxLines += "客户问题（中文/原文）：$Text"
+    $ctxLines += "主意图：$($analysis.primary_intent)   情绪：$($analysis.emotion.polarity)/强度$($analysis.emotion.intensity)   紧急度：$($analysis.urgency)"
+    $ctxLines += "目标国家：$Country   平台：$Platform   品类：$Category"
+    $ctxLines += "检索覆盖度：$($retrieval.coverage)"
+    $ctxLines += "检索证据："
+    foreach ($e in $retrieval.evidence) { $ctxLines += "  [$($e.doc_id)] $($e.title)：$($e.snippet)" }
+    $ctxLines += "主推风格：$($analysis.suggested_style)"
+    $modelGen = Invoke-LLM -Task 'generate' -Params @{
+      system_prompt = (Get-AgentPrompt -Name 'generate')
+      context       = ($ctxLines -join "`n")
+      temperature   = 0.7
+    }
+  }
+  if ($modelGen -and $modelGen.PSObject.Properties.Name -contains 'candidates' -and @($modelGen.candidates).Count -gt 0) {
+    $candidates = @(ConvertFrom-ModelCandidates -Raw @($modelGen.candidates) -Retrieval $retrieval)
+    $generatedBy = 'model'
+    $modelUsed += 'generate(模型)'
+  } else {
+    $candidates = @(New-Candidates -Analysis $analysis -Retrieval $retrieval -Rewrite $rewrite -Country $Country)
+  }
 
   # --- A5 合规校验（真实正则） ---
   $compliance = @()
@@ -533,7 +621,12 @@ function Invoke-Pipeline {
     }
     translation = [pscustomobject]@{
       detected_lang = $lang
-      status = $(if ($lang -eq 'zh') { 'skipped（原文已是中文）' } else { '本地演示未接入翻译模型，下方分析基于原文；接入千帆后由翻译 Agent 输出中文译文' })
+      status = $(
+        if ($lang -eq 'zh') { 'skipped（原文已是中文）' }
+        elseif ($modelTranslation) { '由模型翻译（翻译 Agent）' }
+        else { '本地演示未接入翻译模型，下方分析基于原文；接入千帆后由翻译 Agent 输出中文译文' }
+      )
+      translated_text = $(if ($modelTranslation -and $modelTranslation.PSObject.Properties.Name -contains 'translated_text') { [string]$modelTranslation.translated_text } else { '' })
       glossary_hits = $glossaryHits
     }
     analysis  = $analysis
@@ -555,8 +648,13 @@ function Invoke-Pipeline {
     escalation = [pscustomobject]@{ need_human = $needHuman; reason = $reason; handoff_packet = $handoff }
     meta = [pscustomobject]@{
       latency_ms     = $sw.ElapsedMilliseconds
-      mode           = 'local-rules'
-      degraded_nodes = @(if ($lang -ne 'zh') { 'translate_agent（未接入）' })
+      mode           = (Get-ModelStatus).mode
+      generated_by   = $generatedBy
+      model_used     = $modelUsed
+      degraded_nodes = @(
+        if ($lang -ne 'zh' -and -not $modelTranslation) { 'translate_agent（未接入，本地术语命中）' }
+        if ($generatedBy -eq 'local-template') { 'generate_agent（未接入，本地模板）' }
+      )
     }
   }
 }

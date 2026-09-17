@@ -22,6 +22,8 @@ foreach ($d in @($LogDir, $TmpDir)) { if (-not (Test-Path $d)) { New-Item -ItemT
 # ---------------------------------------------------------------------
 . (Join-Path $Root 'engine\rules.ps1')
 . (Join-Path $Root 'engine\ocr.ps1')
+. (Join-Path $Root 'engine\reader.ps1')
+. (Join-Path $Root 'engine\llm.ps1')
 . (Join-Path $Root 'engine\pipeline.ps1')
 
 Write-Host ""
@@ -33,11 +35,30 @@ $counts = Initialize-KnowledgeBase -DataDir $DataDir
 Write-Host ("  知识库加载完成：合规规则 {0} 条 / 术语 {1} 条 / 政策 {2} 条 / 意图标签 {3} 类" -f `
   $counts.compliance_rules, $counts.glossary, $counts.policy_index, $counts.intent_taxonomy) -ForegroundColor Green
 
+$llmInfo = Initialize-Llm -Root $Root
+
 $ocrLangs = @(Get-OcrAvailableLanguages)
 if ($ocrLangs.Count -gt 0) {
   Write-Host ("  Windows OCR 可用语言：" + ($ocrLangs -join ', ')) -ForegroundColor Green
 } else {
-  Write-Host "  ⚠ 未检测到 Windows OCR 语言包，读屏功能不可用（可直接粘贴文本）" -ForegroundColor Yellow
+  Write-Host "  ⚠ 未检测到 Windows OCR 语言包，读屏功能不可用（可改用剪贴板或窗口直读）" -ForegroundColor Yellow
+}
+
+# 读取方式可用性自检
+$uiaOk = $false
+try { $null = Get-UiaWindows; $uiaOk = $true } catch {}
+Write-Host ("  UI Automation 窗口直读：" + $(if ($uiaOk) { '可用' } else { '不可用' })) -ForegroundColor $(if ($uiaOk) { 'Green' } else { 'Yellow' })
+$clipOk = $false
+try { $null = Get-ClipboardText; $clipOk = $true } catch {}
+Write-Host ("  剪贴板监听：" + $(if ($clipOk) { '可用' } else { '不可用' })) -ForegroundColor $(if ($clipOk) { 'Green' } else { 'Yellow' })
+
+if ($llmInfo.provider -eq 'local') {
+  Write-Host "  模型：本地规则引擎（未接入外部模型）" -ForegroundColor Green
+  Write-Host "        配置模型：复制 config.example.json 为 config.local.json 并改 provider" -ForegroundColor DarkGray
+} else {
+  Write-Host ("  模型：{0} / key {1}" -f $llmInfo.provider, $(if ($llmInfo.has_key) { '已配置' } else { '未配置（将回退本地规则）' })) `
+    -ForegroundColor $(if ($llmInfo.has_key) { 'Green' } else { 'Yellow' })
+  Write-Host ("        密钥存储：" + $llmInfo.store_path) -ForegroundColor DarkGray
 }
 
 # ---------------------------------------------------------------------
@@ -169,9 +190,59 @@ function Handle-Request {
   # ---------- API ----------
   if ($path -eq '/api/health') {
     Send-Json -Stream $Stream -Object @{
-      ok = $true; mode = 'local-rules'
-      data = $counts; ocr_languages = $ocrLangs; port = $Port
+      ok = $true
+      mode = (Get-ModelStatus).mode
+      data = $counts
+      ocr_languages = $ocrLangs
+      uia_available = $uiaOk
+      clipboard_available = $clipOk
+      model = (Get-ModelStatus)
+      port = $Port
     }
+    return
+  }
+
+  # 列出可见窗口（供 UI Automation 直读选择目标）
+  if ($path -eq '/api/windows' -and $Request.method -eq 'GET') {
+    try {
+      Send-Json -Stream $Stream -Object @{ ok = $true; windows = @(Get-UiaWindows) }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok = $false; error = $_.Exception.Message } -Status 500
+    }
+    return
+  }
+
+  # UI Automation 直读指定窗口的文本（不走 OCR，直接拿文字）
+  if ($path -eq '/api/uia' -and $Request.method -eq 'POST') {
+    $b = Get-BodyJson -Request $Request
+    $title = ''; $index = 0
+    if ($null -ne $b) {
+      if ($b.PSObject.Properties.Name -contains 'title') { $title = [string]$b.title }
+      if ($b.PSObject.Properties.Name -contains 'index') { $index = [int]$b.index }
+    }
+    try {
+      $r = Get-UiaWindowText -Title $title -Index $index
+      Send-Json -Stream $Stream -Object @{ ok = $true; read = $r }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok = $false; error = (Protect-Secret $_.Exception.Message) } -Status 200
+    }
+    return
+  }
+
+  # 剪贴板读取
+  if ($path -eq '/api/clipboard' -and $Request.method -eq 'GET') {
+    try {
+      $t = Get-ClipboardText
+      Send-Json -Stream $Stream -Object @{ ok = $true; text = $t; char_count = $t.Length }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok = $false; error = $_.Exception.Message } -Status 500
+    }
+    return
+  }
+
+  # 模型状态（只返回 has_key，绝不返回密钥本身）
+  if ($path -eq '/api/model-status' -and $Request.method -eq 'GET') {
+    Send-Json -Stream $Stream -Object @{ ok = $true; model = (Get-ModelStatus) }
     return
   }
 

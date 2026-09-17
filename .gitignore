@@ -1,6 +1,9 @@
 # ===== 凭据类：绝对不允许入库 =====
-# API Key 用 Windows DPAPI 加密后存在 %APPDATA% 下，仓库里永远不该出现明文
+# API Key 用 Windows DPAPI 加密后存在 %APPDATA%\hzj-agent\ 下；
+# 若该位置不可写，会退回到 111/.secrets/（同样是 DPAPI 密文，且被下面这行挡住）
 credentials*.dat
+credential.dat
+.secrets/
 credentials*.json
 *.key
 .env
