@@ -28,11 +28,25 @@ const INTENT_ZH  = { refund:'退款诉求', exchange:'换货诉求', logistics:'
   payment:'支付问题', customs:'关税与清关', invoice:'发票需求', complaint_service:'服务态度投诉', other:'其他' };
 const RISK_ZH = { chargeback_risk:'拒付风险', platform_intervention_risk:'平台介入风险', legal_risk:'法律风险',
   public_opinion_risk:'舆情风险', repeat_complaint:'重复投诉', minor_involved:'涉未成年人' };
+/* ⚠️ 定位修正：本工具不是"AI 客服"，而是**已经转到人工之后，人工用的话术副驾**。
+   所以这些不再是"要不要转人工"的理由，而是"人工回复前要小心的风险点"。 */
 const ESC_ZH = { critical_urgency:'紧急度极高', escalated_emotion:'情绪失控', high_value_dispute:'高价值纠纷',
   insufficient_knowledge:'知识库无依据', all_candidates_rejected:'全部候选被合规拦截',
-  platform_risk:'平台/拒付风险', legal_risk:'法律风险', customer_request:'客户要求转人工',
+  platform_risk:'平台/拒付风险', legal_risk:'法律风险', customer_request:'客户要求主管介入',
   low_acceptance:'连续未采纳', degraded_pipeline:'链路降级' };
 const ACTION_ZH = { accept:'采纳', edit:'修改后采纳', ignore:'忽略' };
+
+/* 说话人识别：客户转人工前的对话里，可能混着**别的 AI 客服**说过的话。
+   人工回复前必须能分清，否则容易和 AI 之前说过的话自相矛盾。 */
+const SPEAKER_PATTERNS = [
+  { who:'buyer', re:/^\s*(buyer|buyers?|customer|client|买家|客户|顾客)\s*[:：]/i,  tag:'客户' },
+  { who:'bot',   re:/^\s*(ai|bot|robot|chatbot|智能客服|机器人|自动回复|AI客服)\s*[:：]/i, tag:'AI客服' },
+  { who:'human', re:/^\s*(seller|agent|me|support|客服|卖家|坐席|人工|我)\s*[:：]/i, tag:'人工客服' }
+];
+const WHO_LABEL = { buyer:'客户', bot:'AI客服', human:'人工客服', unknown:'未标注' };
+
+/* 运行日志（黑框） */
+const LOG = { items: [], filter:'all', max:320 };
 
 function toast(msg, ok = true) {
   const t = $('#toast');
@@ -42,6 +56,203 @@ function toast(msg, ok = true) {
   t.classList.add('on');
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+/* ---------------- 页面路由 ---------------- */
+const PAGE_TITLE = { workbench:'工作台', tasks:'任务看板', skills:'技能中心', kb:'知识库', settings:'设置' };
+let currentPage = 'workbench';
+
+function setPage(name) {
+  currentPage = name;
+  document.querySelectorAll('#sideNav .nav-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === name);
+  });
+  document.querySelectorAll('.page').forEach(p => {
+    p.classList.toggle('active', p.id === 'page-' + name);
+  });
+  const t = $('#pageTitle');
+  if (t) t.textContent = PAGE_TITLE[name] || name;
+  if (name === 'skills') renderSkills();
+  if (name === 'kb') renderKB();
+  if (name === 'settings') renderSettings();
+}
+
+/* ---------------- 运行日志 ---------------- */
+function pushLog(node, status, msg, ms, kind) {
+  LOG.items.push({
+    t: new Date().toLocaleTimeString('zh-CN', { hour12:false }),
+    node: node, status: status, msg: msg, ms: ms, kind: kind || 'agent'
+  });
+  if (LOG.items.length > LOG.max) LOG.items.splice(0, LOG.items.length - LOG.max);
+  renderLog();
+}
+
+function renderLog() {
+  const box = $('#logBody');
+  if (!box) return;
+  const list = LOG.items.filter(i => LOG.filter === 'all' || i.kind === LOG.filter);
+  const cnt = $('#logCount');
+  if (cnt) cnt.textContent = list.length + ' 条' + (LOG.filter === 'all' ? '' : '（已筛选）');
+
+  if (!list.length) {
+    box.innerHTML = '<div class="logempty">还没有执行记录。生成话术时，这里会显示每个 Agent 的执行结果、检索命中和合规拦截。</div>';
+    return;
+  }
+  box.innerHTML = '';
+  list.slice().reverse().forEach(i => {
+    const line = el('div', 'logline ' + (i.status === 'ok' ? 'ok' : i.status === 'err' ? 'err' : i.status === 'warn' ? 'warn' : ''));
+    line.appendChild(el('span', 'lt', esc(i.t)));
+    line.appendChild(el('span', 'lnode', esc(i.node)));
+    line.appendChild(el('span', 'lmsg', i.msg));            // 允许带 HTML（已在上游转义）
+    if (i.ms != null) line.appendChild(el('span', 'lms', i.ms + 'ms'));
+    box.appendChild(line);
+  });
+}
+
+function clearLog() {
+  LOG.items = [];
+  renderLog();
+}
+
+/* ---------------- 对话解析与渲染 ---------------- */
+function parseChat(raw) {
+  const out = [];
+  const lines = String(raw || '').split('\n');
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) continue;
+    let matched = false;
+    for (const p of SPEAKER_PATTERNS) {
+      const m = line.match(p.re);
+      if (m) {
+        out.push({ who: p.who, tag: p.tag, text: line.slice(m[0].length).trim() });
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // 没标说话人：接着上一条
+      if (out.length) out[out.length - 1].text += '\n' + line.trim();
+      else out.push({ who:'unknown', tag:'未标注', text: line.trim() });
+    }
+  }
+  return out;
+}
+
+function renderChat() {
+  const box = $('#chatView');
+  if (!box) return;
+  const msgs = parseChat($('#chatText').value);
+  const stat = $('#turnStat');
+
+  if (!msgs.length) {
+    box.innerHTML = '<div class="chatempty">读取到的对话会在这里按「客户 / AI客服 / 人工客服」分类显示</div>';
+    if (stat) stat.textContent = '';
+    return;
+  }
+  const nBuyer = msgs.filter(m => m.who === 'buyer').length;
+  const nBot   = msgs.filter(m => m.who === 'bot').length;
+  const nHuman = msgs.filter(m => m.who === 'human').length;
+  if (stat) stat.textContent = `共 ${msgs.length} 条 · 客户${nBuyer} / AI${nBot} / 人工${nHuman}`;
+
+  box.innerHTML = '';
+  msgs.forEach(m => {
+    const b = el('div', 'bubble ' + m.who);
+    const who = el('div', 'who');
+    who.appendChild(el('span', 'wtag', m.tag));
+    b.appendChild(who);
+    b.appendChild(el('div', 'txt', esc(m.text)));
+    box.appendChild(b);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ---------------- 技能中心 / 知识库 / 设置 ---------------- */
+function renderSkills() {
+  const box = $('#skillGrid');
+  if (!box) return;
+  const skills = [
+    { name:'话术风格模板', tag:'内置', desc:'五种风格：安抚致歉 / 专业答疑 / 营销促单 / 纠纷调解 / 合规告知。可覆盖为商户专属版本。', meta:['style_templates','14 意图 × 3 风格'] },
+    { name:'服装跨境术语表', tag:'内置', desc:'中英西德法五语术语库，翻译与回译共用，禁止机翻硬译。', meta:['glossary','46 条'] },
+    { name:'意图关键词库', tag:'内置', desc:'14 类意图的多语言信号词，意图识别的召回来源。', meta:['intent_taxonomy','14 类'] },
+    { name:'合规规则库', tag:'内置', desc:'25 条规则，正则可执行。⚠️ 状态为 seed，上线前须法务确认。', meta:['compliance_rules','25 条'] },
+    { name:'（待接入）商户专属技能', tag:'规划中', desc:'上传 .md / .yml 覆盖上述任一层，后端接口就绪后开放。', meta:['skill_import','v2'] }
+  ];
+  box.innerHTML = '';
+  skills.forEach(s => {
+    const c = el('div', 'skillcard');
+    const nm = el('div', 'sk-name');
+    nm.appendChild(el('span', null, esc(s.name)));
+    nm.appendChild(el('span', 'tag', esc(s.tag)));
+    c.appendChild(nm);
+    c.appendChild(el('div', 'sk-desc', esc(s.desc)));
+    const meta = el('div', 'sk-meta');
+    s.meta.forEach(m => meta.appendChild(el('span', null, esc(m))));
+    c.appendChild(meta);
+    box.appendChild(c);
+  });
+}
+
+function renderKB() {
+  const box = $('#kbTable');
+  if (!box) return;
+  const h = window.__HEALTH;
+  const d = (h && h.data) || {};
+  const rows = [
+    { name:'policy_kb', label:'各国政策库', meta:'18 条政策 · 含生效日期 · 检索强制时效过滤', ok:true },
+    { name:'compliance_rules', label:'合规规则库', meta:'25 条可执行正则 · violation / obligation 两层', ok:true },
+    { name:'glossary', label:'服装术语库', meta:'46 条 · 中英西德法', ok:true },
+    { name:'intent_taxonomy', label:'意图标签库', meta:'14 类 · 多语言信号词', ok:true },
+    { name:'case_kb', label:'优质案例库', meta:'种子阶段为空，需从试点商户沉淀', ok:false },
+    { name:'product_kb', label:'产品知识库', meta:'待接入商户真实产品与尺码数据', ok:false }
+  ];
+  box.innerHTML = '';
+  rows.forEach(r => {
+    const row = el('div', 'kbrow');
+    row.appendChild(el('div', 'kbname', esc(r.label)));
+    row.appendChild(el('div', 'kbmeta', esc(r.meta)));
+    row.appendChild(el('div', 'kbstat ' + (r.ok ? 'ok' : 'off'), r.ok ? '已加载' : '待接入'));
+    box.appendChild(row);
+  });
+  if (d.compliance_rules) {
+    box.appendChild(el('div', 'hint',
+      `当前加载：合规规则 ${d.compliance_rules} 条 / 术语 ${d.glossary} 条 / 政策 ${d.policy_index} 条 / 意图 ${d.intent_taxonomy} 类`));
+  }
+}
+
+function renderSettings() {
+  const h = window.__HEALTH;
+  const m = (h && h.model) || { mode:'local-fallback', provider:'local' };
+
+  const mb = $('#setModel');
+  if (mb) {
+    mb.innerHTML = '';
+    mb.appendChild(kv('生效模式', m.mode === 'model' ? '<span style="color:var(--ok)">外部模型</span>' : '本地规则引擎'));
+    mb.appendChild(kv('provider', esc(m.provider || 'local')));
+    mb.appendChild(kv('endpoint', m.endpoint_set ? esc(m.endpoint || '已设置') : '（未设置）'));
+    mb.appendChild(kv('模型名', m.model ? esc(m.model) : '（未设置）'));
+    mb.appendChild(el('div', 'hint', '接入方法：复制 <code>config.example.json</code> 为 <code>config.local.json</code>，改 provider 与 endpoint，再用 <code>tools\\set-api-key.ps1</code> 存密钥。'));
+  }
+
+  const kb = $('#setKey');
+  if (kb) {
+    kb.innerHTML = '';
+    kb.appendChild(kv('状态', m.has_key ? '<span style="color:var(--ok)">已配置</span>' : '<span style="color:var(--warn)">未配置</span>'));
+    if (m.has_key) {
+      kb.appendChild(kv('指纹', esc(m.key_fingerprint || '')));
+      kb.appendChild(kv('更新时间', esc(m.key_updated_at || '')));
+    }
+    kb.appendChild(kv('存储位置', '<span style="font-size:11px">' + esc(m.key_store || '') + '</span>'));
+  }
+
+  const rd = $('#setReaders');
+  if (rd) {
+    rd.innerHTML = '';
+    rd.appendChild(kv('窗口直读（UI Automation）', h && h.uia_available ? '✅ 可用' : '❌ 不可用'));
+    rd.appendChild(kv('剪贴板监听', h && h.clipboard_available ? '✅ 可用' : '❌ 不可用'));
+    const langs = (h && h.ocr_languages) || [];
+    rd.appendChild(kv('读屏 OCR', langs.length ? '✅ ' + langs.join(', ') : '❌ 未安装语言包'));
+  }
 }
 
 function setReadStatus(html, cls) {
@@ -83,8 +294,21 @@ async function health() {
     if (r.clipboard_available === false) {
       $('#btnClipWatch').disabled = true;
     }
+
+    // 左侧导航底部的连接状态
+    const sd = $('#sideDot'), ss = $('#sideStatus'), sm = $('#sideModel');
+    if (sd) sd.className = 'dot on';
+    if (ss) ss.textContent = '已连接 127.0.0.1:8799';
+    if (sm) sm.textContent = m.mode === 'model' ? ('模型：' + (m.provider || '')) : '模型：本地规则';
+
+    // 若当前正停在设置/知识库页，刷新其内容
+    if (currentPage === 'settings') renderSettings();
+    if (currentPage === 'kb') renderKB();
   } catch (e) {
     $('#kbBadge').textContent = '服务未连接';
+    const sd = $('#sideDot'), ss = $('#sideStatus');
+    if (sd) sd.className = 'dot off';
+    if (ss) ss.textContent = '未连接';
     toast('无法连接本地服务', false);
   }
 }
@@ -164,6 +388,7 @@ function startUiaWatch() {
     if (r.text && r.text !== state.lastReadText) {
       state.lastReadText = r.text;
       $('#chatText').value = r.text;
+      renderChat();
       setReadStatus(`已读取 <b>${r.line_count}</b> 行 / ${r.char_count} 字（范围：${r.scope === 'document' ? '正文区' : '整窗'}，耗时 ${r.ms}ms）`, 'ok');
       await analyzeText(true);
     }
@@ -200,6 +425,7 @@ function startClipWatch() {
       if (t && t.length >= 4 && t !== state.lastReadText) {
         state.lastReadText = t;
         $('#chatText').value = t;
+        renderChat();
         setReadStatus(`已从剪贴板读取 <b>${t.length}</b> 字`, 'ok');
         await analyzeText(true);
       }
@@ -303,6 +529,7 @@ async function sendImage(dataUrl, silent) {
       if (r.ocr.text !== state.lastReadText) {
         state.lastReadText = r.ocr.text;
         $('#chatText').value = r.ocr.text;
+        renderChat();
         state.ocrInfo = r.ocr;
         setReadStatus(`OCR 读取 <b>${r.ocr.char_count}</b> 字（语言 ${r.ocr.language_used}）`, 'ok');
         render(r.result);
@@ -481,12 +708,12 @@ function renderAnalysis(res) {
   const a = res.analysis, esc_ = res.escalation;
 
   if (esc_.need_human) {
-    const al = el('div', 'alert human');
-    al.innerHTML = `<b>⚠ 建议转人工</b>（${esc(ESC_ZH[esc_.reason] || esc_.reason || '')}）<br>` +
-      `系统不会替你发送话术。请先核对下方政策依据，再决定如何回复。`;
+    const al = el('div', 'alert risk');
+    al.innerHTML = `<b>⚠ 高风险案件</b>（${esc(ESC_ZH[esc_.reason] || esc_.reason || '')}）<br>` +
+      `回复前请核对下方<b>政策依据</b>，避免口径与该国法规或平台规则冲突。`;
     box.appendChild(al);
   } else {
-    box.appendChild(el('div', 'alert ok', '<b>✓ 可直接使用</b><br>候选话术已通过合规校验，可复制发送。'));
+    box.appendChild(el('div', 'alert ok', '<b>✓ 常规案件</b><br>候选话术已通过合规校验，核对政策依据后可使用。'));
   }
 
   const sInput = el('div', 'an-sec');
@@ -598,6 +825,69 @@ function render(res) {
   state.lastResult = res;
   renderCandidates(res);
   renderAnalysis(res);
+  emitResultLog(res);          // 把这次结果展开成运行日志
+}
+
+/* 把管线结果展开成逐节点日志。
+   ⚠️ 说明：后端目前只返回最终结果，所以这里是**从结果推导**出各节点状态，
+   不是后端真实上报的执行日志。等后端把每节点的输入/输出/耗时/理由记下来，
+   这里改成直接读真实日志即可（接口形状保持一致）。 */
+function emitResultLog(res) {
+  const a = res.analysis, rt = res.retrieval, tr = res.translation, mt = res.meta || {};
+
+  // 翻译
+  if (tr && tr.status) {
+    const ok = tr.detected_lang === 'zh' || !!tr.translated_text;
+    pushLog('translate', ok ? 'ok' : 'warn',
+      ok ? `识别为 <b>${esc(tr.detected_lang.toUpperCase())}</b>` + (tr.glossary_hits && tr.glossary_hits.length ? ` · 术语命中 ${tr.glossary_hits.length}` : '')
+         : esc(tr.status),
+      null, 'agent');
+  }
+  // 意图情绪
+  if (a) {
+    pushLog('intent', 'ok',
+      `主意图 <b>${esc(a.primary_intent_zh || a.primary_intent)}</b> · 情绪 ${esc(a.emotion.polarity)}/${a.emotion.intensity} · 紧急度 ${esc(a.urgency)}`,
+      null, 'agent');
+    if ((a.risk_flags || []).length) {
+      pushLog('intent', 'warn', '风险标记：' + a.risk_flags.map(r => esc(RISK_ZH[r] || r)).join('、'), null, 'agent');
+    }
+  }
+  // 查询改写
+  if (rt && rt.queries) {
+    pushLog('rewrite', 'ok', `生成 <b>${rt.queries.length}</b> 条检索 query · 路由 ${(rt.kb_route || []).map(esc).join(' / ')}`, null, 'agent');
+  }
+  // 检索
+  if (rt) {
+    const n = (rt.evidence || []).length;
+    const cov = rt.coverage;
+    pushLog('retrieve', cov === 'sufficient' ? 'ok' : cov === 'partial' ? 'warn' : 'err',
+      `命中 <b>${n}</b> 条证据 · 覆盖度 ${esc(cov)}` +
+      (n ? ' · ' + rt.evidence.slice(0, 3).map(e => esc(e.doc_id)).join(', ') : ''),
+      null, 'retrieval');
+    (rt.evidence || []).forEach(e => {
+      pushLog('retrieve', 'ok', `[${esc(e.doc_id)}] ${esc(e.title)} <span style="color:#4d5666">匹配 ${e.score} · 生效 ${esc(e.effective_date || '-')}</span>`, null, 'retrieval');
+    });
+  }
+  // 话术生成
+  if (res.candidates) {
+    pushLog('generate', 'ok',
+      `产出 <b>${res.candidates.length}</b> 条候选 · 来源 ${mt.generated_by === 'model' ? '模型' : '本地模板'}` +
+      (mt.model_used && mt.model_used.length ? ' · ' + mt.model_used.map(esc).join('、') : ''),
+      null, 'agent');
+  }
+  // 合规
+  (res.compliance || []).forEach(c => {
+    const st = c.decision === 'pass' ? 'ok' : c.decision === 'revise' ? 'warn' : 'err';
+    const vs = (c.violations || []).map(v => `[${esc(v.rule_id)}] ${esc(v.title || v.reason)}`).join('；');
+    pushLog('compliance', st,
+      `${esc(c.candidate_id)}/${esc(c.style)} → <b>${c.decision}</b>` + (vs ? ' · ' + vs : ''),
+      null, 'compliance');
+  });
+  // 主控汇总
+  pushLog('orchestrate', res.escalation && res.escalation.need_human ? 'warn' : 'ok',
+    `推荐 <b>${esc(res.final.recommended_candidate_id || '无')}</b> · ${res.escalation && res.escalation.need_human ? '标记为高风险案件' : '常规案件'}` +
+    ` · 总耗时 ${mt.latency_ms || 0}ms`,
+    null, 'agent');
 }
 
 /* ---------------- 数据闭环弹窗 ---------------- */
@@ -623,10 +913,45 @@ async function showStats() {
 }
 
 /* ---------------- 事件绑定 ---------------- */
-const DEMO = `Buyer: The dress arrived with stains and I want my money back
+const DEMO = `AI客服: 您好，请问有什么可以帮您？
+Buyer: The dress arrived with stains and I want my money back
+AI客服: 很抱歉给您带来不便，我这边只能为您登记，具体方案需要售后专员为您处理。
 Buyer: I have been waiting 10 days already
+AI客服: 已为您转接人工客服，请稍候。
 Seller: So sorry, let me check your order
-Buyer: If you don't handle this I will complain to the platform`;
+Buyer: If you don't handle this I will complain to the platform
+Seller: Let me look into it for you right away.`;
+
+// 左侧导航
+document.querySelectorAll('#sideNav .nav-item').forEach(b => {
+  b.onclick = () => setPage(b.dataset.page);
+});
+
+// 对话内容变化 → 实时重绘气泡与统计
+$('#chatText').addEventListener('input', renderChat);
+
+// 原始文本展开/收起
+$('#btnToggleRaw').onclick = () => {
+  const ta = $('#chatText');
+  const hidden = ta.classList.toggle('hidden');
+  $('#btnToggleRaw').textContent = hidden ? '展开' : '收起';
+};
+
+// 日志面板：折叠展开 / 筛选 / 清空
+$('#logHead').onclick = (e) => {
+  if (e.target.closest('.logfilters') || e.target.closest('#btnClearLog')) return;
+  $('#logPanel').classList.toggle('collapsed');
+  $('#logChev').textContent = $('#logPanel').classList.contains('collapsed') ? '▶' : '▼';
+};
+document.querySelectorAll('#logFilters .lf').forEach(b => {
+  b.onclick = (e) => {
+    e.stopPropagation();
+    LOG.filter = b.dataset.f;
+    document.querySelectorAll('#logFilters .lf').forEach(x => x.classList.toggle('active', x === b));
+    renderLog();
+  };
+});
+$('#btnClearLog').onclick = (e) => { e.stopPropagation(); clearLog(); toast('日志已清空'); };
 
 document.querySelectorAll('#tabs .tab').forEach(t => {
   t.onclick = () => setMode(t.dataset.mode);
@@ -636,14 +961,18 @@ $('#btnUiaWatch').onclick = () => state.uiaWatching ? stopUiaWatch() : startUiaW
 $('#btnClipWatch').onclick = () => state.clipWatching ? stopClipWatch() : startClipWatch();
 $('#btnCapture').onclick = () => state.capturing ? stopCapture() : startCapture();
 $('#btnAnalyze').onclick = () => analyzeText(false);
-$('#btnClear').onclick = () => { $('#chatText').value = ''; state.lastReadText = ''; setReadStatus(''); };
+$('#btnClear').onclick = () => {
+  $('#chatText').value = ''; state.lastReadText = '';
+  setReadStatus(''); renderChat();
+};
 $('#btnDemo').onclick = () => {
   $('#chatText').value = DEMO;
   state.lastReadText = DEMO;
   $('#selCountry').value = 'ES';
   $('#selPlatform').value = 'tiktok_shop';
   $('#selCategory').value = 'dress';
-  toast('已填充演示样本（西班牙 · TikTok Shop · 连衣裙）');
+  renderChat();
+  toast('已填充演示样本（含 AI 客服转人工的上下文）');
 };
 $('#btnStats').onclick = showStats;
 $('#modalClose').onclick = () => $('#modal').classList.remove('on');
@@ -684,5 +1013,7 @@ document.addEventListener('drop', (e) => {
   fr.readAsDataURL(f);
 });
 
+renderChat();
+renderLog();
 health();
 setMode('uia');

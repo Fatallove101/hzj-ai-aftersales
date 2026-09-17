@@ -135,6 +135,14 @@ try {
     if (!el) return { name: name, missing: true };
     var r = el.getBoundingClientRect();
     var st = getComputedStyle(el);
+    // 只有"没有可滚动祖先"时，元素底部超出视口才算异常。
+    // 位于滚动容器内部的元素本来就可能在折叠线下方 —— 那是可滚动的正常状态，
+    // 不加这个判断会满屏误报"溢出视口"，反而掩盖真问题。
+    var inScroller = false;
+    for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      var ps = getComputedStyle(p);
+      if (ps.overflowY === 'auto' || ps.overflowY === 'scroll' || ps.overflowY === 'hidden') { inScroller = true; break; }
+    }
     return {
       name: name,
       clientH: el.clientHeight,
@@ -144,7 +152,8 @@ try {
       overflowY: st.overflowY,
       minHeight: st.minHeight,
       scrollable: el.scrollHeight > el.clientHeight + 1,
-      overflowsViewport: Math.round(r.bottom) > window.innerHeight + 1
+      inScroller: inScroller,
+      overflowsViewport: (!inScroller) && Math.round(r.bottom) > window.innerHeight + 1
     };
   }
 
@@ -156,12 +165,33 @@ try {
     } catch (e) {
       report.errors.push('render() 抛异常: ' + e.message);
     }
+    // 填一段含「AI 客服转人工」上下文的对话，验证三类发言人分类 + 便于截图
+    var ta = document.getElementById('chatText');
+    if (ta) {
+      ta.value = 'AI客服: 您好，请问有什么可以帮您？\n' +
+                 'Buyer: The dress arrived with stains and I want my money back\n' +
+                 'AI客服: 很抱歉给您带来不便，我这边只能为您登记，具体方案需要售后专员处理。\n' +
+                 'Buyer: I have been waiting 10 days already\n' +
+                 'AI客服: 已为您转接人工客服，请稍候。\n' +
+                 'Seller: So sorry, let me check your order\n' +
+                 'Buyer: If you don\'t handle this I will complain to the platform';
+      renderChat();
+      var bs = document.querySelectorAll('.bubble');
+      report.chatBubbles = bs.length;
+      report.chatKinds = Array.prototype.map.call(bs, function (b) {
+        return (b.className || '').replace('bubble ', '').trim();
+      });
+      report.logLines = document.querySelectorAll('.logline').length;
+    }
     var cols = document.querySelectorAll('.col');
     for (var i = 0; i < cols.length; i++) report.items.push(measure('列' + (i + 1) + '(.col)', cols[i]));
     report.items.push(measure('中列-候选话术(#candidates)', document.querySelector('#candidates')));
     report.items.push(measure('右列-分析结果(#analysis)', document.querySelector('#analysis')));
     report.items.push(measure('中列卡片(.card-flush)', document.querySelector('.col-wide > .card-flush')));
-    report.items.push(measure('页面容器(.layout)', document.querySelector('.layout')));
+    report.items.push(measure('三栏容器(.wb-cols)', document.querySelector('.wb-cols')));
+    report.items.push(measure('运行日志(.logpanel)', document.querySelector('.logpanel')));
+    report.items.push(measure('对话流(.chatview)', document.querySelector('.chatview')));
+    report.items.push(measure('左侧导航(.sidebar)', document.querySelector('.sidebar')));
 
     // 双语卡片结构是否真的渲染出来了
     var blocks = document.querySelectorAll('.cand-lang');
@@ -172,6 +202,7 @@ try {
       report.langLabels.push(nm ? nm.textContent : '(无标签)');
     }
     report.candCount = document.querySelectorAll('.cand').length;
+
 
     var pre = document.getElementById('layoutreport');
     pre.textContent = '@@@REPORT@@@' + JSON.stringify(report) + '@@@END@@@';
@@ -252,8 +283,12 @@ try {
   Assert "候选卡片未被 flex 压扁（scrollH 大于 clientH）" ($cand -and $cand.scrollH -gt $cand.clientH) $(if ($cand) { "scrollH=$($cand.scrollH) clientH=$($cand.clientH)" })
   Assert "候选话术容器 overflow-y 是 auto/scroll" ($cand -and $cand.overflowY -match 'auto|scroll') $(if ($cand) { $cand.overflowY })
   Assert "分析结果容器 overflow-y 是 auto/scroll" ($anal -and $anal.overflowY -match 'auto|scroll') $(if ($anal) { $anal.overflowY })
-  Assert "布局容器不溢出视口" (-not ($rep.items | Where-Object { $_.name -like '*layout*' }).overflowsViewport)
+  Assert "三栏容器不溢出视口" (-not ($rep.items | Where-Object { $_.name -like '*wb-cols*' }).overflowsViewport)
   Assert "render() 无异常" ($rep.errors.Count -eq 0) ($rep.errors -join '; ')
+  $logp = $rep.items | Where-Object { $_.name -like '*logpanel*' }
+  Assert "运行日志面板存在且不溢出视口" ($logp -and -not $logp.missing -and -not $logp.overflowsViewport)
+  $chat = $rep.items | Where-Object { $_.name -like '*chatview*' }
+  Assert "对话流区域存在" ($chat -and -not $chat.missing)
   Assert "渲染出 3 张候选卡片" ($rep.candCount -eq 3) "实际 $($rep.candCount)"
   Assert "双语块数 = 候选数×2（上客户语言/下中文）" ($rep.langBlocks -eq 6) "实际 $($rep.langBlocks)"
   Assert "上层标签写明发给客户" (($rep.langLabels | Where-Object { $_ -like '*发给客户*' }).Count -eq 3)
