@@ -34,9 +34,17 @@ body{
 /* ---------- 布局 ---------- */
 .layout{
   flex:1 1 auto; display:grid; grid-template-columns:340px minmax(420px,1fr) 360px;
+  /* ⚠️ 关键：锁定隐式行高为容器高度。
+     不写这行时，隐式行是 auto，会被"最高的那一列"撑大，
+     导致每一列都跟自己的内容一样高 —— overflow-y:auto 永远不触发，
+     超出视口的部分被 .layout 的 overflow:hidden 直接裁掉（内容看不见也滚不到）。 */
+  grid-auto-rows:minmax(0, 1fr);
   gap:14px; padding:14px; overflow:hidden;
 }
-.col{display:flex; flex-direction:column; gap:14px; overflow-y:auto; padding-right:2px}
+/* min-height:0 让 grid/flex 子项能收缩到比内容更小，否则它同样拒绝滚动。
+   overflow-x 显式设为 hidden：CSS 规定只要纵轴不是 visible，
+   横轴的 visible 会自动变成 auto，否则会平白多出一条横向滚动条。 */
+.col{display:flex; flex-direction:column; gap:14px; overflow-y:auto; overflow-x:hidden; min-height:0; max-height:100%; padding-right:2px}
 .col-wide{min-width:0}
 .col::-webkit-scrollbar{width:8px}
 .col::-webkit-scrollbar-thumb{background:#2a3240; border-radius:4px}
@@ -44,6 +52,16 @@ body{
 /* ---------- 卡片 ---------- */
 .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:14px}
 .card-flush{padding:0; overflow:hidden}
+/* 中列(候选话术)/右列(分析结果)：卡片撑满列高，由卡片内部滚动。
+   这样标题行固定不动，滚动的只有列表本身，比整列滚动更好用。 */
+.col > .card-flush{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+.col > .card-flush > h2{flex:0 0 auto}
+.col > .card-flush > #candidates,
+.col > .card-flush > #analysis{flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden}
+.col > .card-flush > #candidates::-webkit-scrollbar,
+.col > .card-flush > #analysis::-webkit-scrollbar{width:8px}
+.col > .card-flush > #candidates::-webkit-scrollbar-thumb,
+.col > .card-flush > #analysis::-webkit-scrollbar-thumb{background:#2a3240; border-radius:4px}
 .card h2{font-size:13px; font-weight:600; color:var(--tx); margin-bottom:11px; display:flex; align-items:center; gap:7px}
 .card h2.pad{padding:13px 14px 0; margin-bottom:12px}
 .step{
