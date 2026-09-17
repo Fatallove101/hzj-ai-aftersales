@@ -21,7 +21,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $Root   = Split-Path -Parent $PSScriptRoot
 $WebDir = Join-Path $Root 'web'
-$Server = 'http://127.0.0.1:8799'
+# $Server 在下面按"专用端口"动态赋值，不要在这里写死 8799
 
 $Edge = @(
   "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
@@ -36,18 +36,46 @@ Write-Host "  工作台布局实测（无头 Edge）" -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 服务没起就先拉起来临时用一下
-$tempServer = $null
-try {
-  $null = Invoke-RestMethod "$Server/api/health" -TimeoutSec 3
-  Write-Host "  本地服务已在运行" -ForegroundColor Green
-} catch {
-  Write-Host "  本地服务未启动，临时起一个…" -ForegroundColor Yellow
-  $tempServer = Start-Process -FilePath "powershell" `
-    -ArgumentList "-NoProfile","-ExecutionPolicy","Bypass","-File","$Root\server.ps1","-Port","8799","-NoBrowser" `
-    -PassThru -WindowStyle Hidden
-  Start-Sleep -Seconds 5
+# ---------------------------------------------------------------------
+# 服务：永远用本工具自己起的实例，固定从本目录的 server.ps1 起。
+#
+# 为什么不复用已经在跑的 8799：
+#   如果有人已经跑着另一个副本的服务（比如 A 目录在跑，本工具从 B 目录启动），
+#   本工具会把测试页写进 B\web，而 8799 上的服务其实在读 A\web →
+#   返回 404 → 拿不到测量结果 → 脚本静默失败，排查起来很费时间。
+#   自己起一个专用端口就没有这个问题。
+# ---------------------------------------------------------------------
+function Find-FreePort {
+  foreach ($p in (8801..8830)) {
+    $l = $null
+    try {
+      $l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $p)
+      $l.Start(); $l.Stop(); return $p
+    } catch { if ($l) { try { $l.Stop() } catch {} } }
+  }
+  return 0
 }
+
+$Port   = Find-FreePort
+if ($Port -eq 0) { Write-Host "  找不到空闲端口，无法进行布局检查" -ForegroundColor Red; exit 1 }
+$Server = "http://127.0.0.1:$Port"
+
+Write-Host ("  启动专用服务实例（端口 {0}，目录 {1}）…" -f $Port, $Root) -ForegroundColor DarkGray
+$tempServer = Start-Process -FilePath "powershell" `
+  -ArgumentList "-NoProfile","-ExecutionPolicy","Bypass","-File","$Root\server.ps1","-Port","$Port","-NoBrowser" `
+  -PassThru -WindowStyle Hidden
+
+$ready = $false
+for ($i = 0; $i -lt 20; $i++) {
+  Start-Sleep -Milliseconds 700
+  try { $null = Invoke-RestMethod "$Server/api/health" -TimeoutSec 3; $ready = $true; break } catch {}
+}
+if (-not $ready) {
+  Write-Host "  ✕ 专用服务起不来，请先单独跑一次 server.ps1 看报错" -ForegroundColor Red
+  if ($tempServer) { try { Stop-Process -Id $tempServer.Id -Force } catch {} }
+  exit 1
+}
+Write-Host "  服务就绪" -ForegroundColor Green
 
 $testJs   = Join-Path $WebDir '_layouttest.js'
 $testHtml = Join-Path $WebDir '_layouttest.html'
