@@ -319,6 +319,10 @@ Get-ChildItem -Recurse -Filter *.js web, extension | ForEach-Object { & "C:\Prog
 
 # 前端渲染逻辑 —— 单元测试（Node 真执行）
 & "C:\Program Files\nodejs\node.exe" tools\test-render.js
+
+# 布局 —— 无头浏览器真实测量（可换视口）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\layout-check.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Width 1000 -Height 640
 ```
 
 | 检查 | 覆盖内容 | 当前状态 |
@@ -326,6 +330,13 @@ Get-ChildItem -Recurse -Filter *.js web, extension | ForEach-Object { & "C:\Prog
 | `selfcheck.ps1` | 126 条模板话术 × 25 条真实规则；7 个行为用例；26 条合规闸门单元测试 | ✅ 全部通过 |
 | `node --check` | 10 个 JS 文件（web + extension）的真语法解析 | ✅ 全部通过 |
 | `test-render.js` | 双语卡片渲染逻辑：上下分割、语言选择、回退提示、独立复制 | ✅ 22/22 通过 |
+| `layout-check.ps1` | 无头 Edge 真实测量：三列不溢出视口、候选/分析列可滚动、卡片未被压扁、双语块结构 | ✅ 1000/1280/1440/1920 四种视口全通过 |
+
+> `layout-check.ps1` 会把真实 `index.html` 复制一份、注入测量脚本，
+> 用**真实的 `render()`** 渲染 3 条长文本候选，再量每个容器的
+> `clientHeight / scrollHeight / bottom / overflow-y`。
+> 它抓到过一个只看代码看不出来的 bug：候选卡片被 flex 压扁
+> （`scrollHeight` 恰好等于 `clientHeight`，容器以为不用滚，其实内容已被裁掉）。
 
 > `tools\check-js.ps1` 是在**还没装 Node 时**写的替代方案（状态机做括号/字符串闭合校验）。
 > 现在已经装了 Node v24，**优先用 `node --check`**，那个才是真正的 JS 解析器。

@@ -122,6 +122,13 @@ textarea:focus,.sel:focus{outline:none; border-color:var(--acc)}
 
 /* ---------- 候选话术 ---------- */
 #candidates{padding:0 14px 14px; display:flex; flex-direction:column; gap:12px}
+/* ⚠️ flex:0 0 auto 必须写。
+   #candidates 是 column flex 容器，它的子项默认 flex-shrink:1，
+   于是候选卡片会被"压扁"到容器高度内 —— scrollHeight 恰好等于 clientHeight，
+   容器自己以为"没溢出、不用滚"，再叠加 .cand 的 overflow:hidden，
+   多出来的文字就被直接裁掉。表现为：内容显示不全，且滚不动。
+   卡片必须保持自然高度不收缩，让容器真正溢出，滚动才会生效。 */
+#candidates > *{flex:0 0 auto}
 .cand{
   border:1px solid var(--line); border-radius:9px; background:var(--panel2);
   overflow:hidden; transition:.15s;
