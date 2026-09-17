@@ -340,13 +340,50 @@ async function analyzeText(silent) {
 }
 
 /* ---------------- 渲染：候选话术 ---------------- */
+const LANG_LABEL = { en: 'English', es: 'Español', zh: '中文' };
+
 function pickText(c, lang) {
   if (lang === 'zh') return { text: c.text_zh, note: '' };
   if (lang === 'es') {
     if (c.text_es) return { text: c.text_es, note: '' };
-    return { text: c.text_en, note: '本演示未内置该风格的西语版本，已回退为英文；接入千帆翻译 Agent 后可自动回译' };
+    return { text: c.text_en, note: '本演示未内置该风格的西语版本，暂以英文代替；接入千帆翻译 Agent 后可自动回译' };
   }
   return { text: c.text_en, note: '' };
+}
+
+/** 构造"上层=发给客户的语言 / 下层=中文对照"的双语块 */
+function buildBilingualBlocks(c, target) {
+  const picked = pickText(c, target);
+  const blocks = [];
+
+  // ── 上：发给客户的语言 ──
+  const top = el('div', 'cand-lang');
+  const topBar = el('div', 'lang-bar');
+  topBar.appendChild(el('span', 'lang-name', '发给客户 · ' + (LANG_LABEL[target] || target)));
+  const topCopy = el('button', 'btn xs ghost', '复制');
+  topCopy.title = '只复制这一段（客户语言）';
+  topCopy.onclick = () => copyText(picked.text || c.text_zh);
+  topBar.appendChild(topCopy);
+  top.appendChild(topBar);
+  top.appendChild(el('div', 'lang-text', picked.text || c.text_zh));
+  blocks.push(top);
+
+  // ── 下：中文对照 ──
+  if (target !== 'zh') {
+    const bot = el('div', 'cand-lang zh');
+    const botBar = el('div', 'lang-bar');
+    botBar.appendChild(el('span', 'lang-name', '中文对照'));
+    const botCopy = el('button', 'btn xs ghost', '复制');
+    botCopy.title = '只复制这一段（中文）';
+    botCopy.onclick = () => copyText(c.text_zh);
+    botBar.appendChild(botCopy);
+    bot.appendChild(botBar);
+    bot.appendChild(el('div', 'lang-text', c.text_zh));
+    blocks.push(bot);
+  }
+
+  if (picked.note) blocks.push(el('div', 'lang-note', 'ⓘ ' + picked.note));
+  return blocks;
 }
 
 function renderCandidates(res) {
@@ -363,6 +400,7 @@ function renderCandidates(res) {
   res.candidates.forEach(c => {
     const comp = compMap[c.candidate_id] || { decision: 'pass', violations: [] };
     const isRec = (c.candidate_id === recId);
+    const picked = pickText(c, target);   // 底部按钮也要用，这里先取一次
     const card = el('div', 'cand' + (isRec ? ' recommended' : '') + (comp.decision === 'reject' ? ' rejected' : ''));
 
     const head = el('div', 'cand-head');
@@ -373,22 +411,8 @@ function renderCandidates(res) {
     if (c.unsupported) head.appendChild(el('span', 'tag unsupported', '无知识依据'));
     card.appendChild(head);
 
-    const body = el('div', 'cand-body');
-    const picked = pickText(c, target);
-    body.textContent = picked.text || c.text_zh;
-    card.appendChild(body);
-
-    if (target !== 'zh') {
-      const zhBox = el('div', 'cand-body target');
-      zhBox.textContent = '中文：' + c.text_zh;
-      card.appendChild(zhBox);
-    }
-    if (picked.note) {
-      const n = el('div', 'cand-body target');
-      n.style.color = 'var(--warn)';
-      n.textContent = 'ⓘ ' + picked.note;
-      card.appendChild(n);
-    }
+    // 双语：上=客户语言，下=中文对照（上下分割）
+    buildBilingualBlocks(c, target).forEach(b => card.appendChild(b));
 
     (comp.violations || []).forEach(v => {
       const box = el('div', 'violation' + (v.severity === 'revise' ? ' revise' : ''));

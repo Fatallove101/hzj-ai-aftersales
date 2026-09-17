@@ -40,8 +40,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File server.ps1 -Port 8799
 点「**填充演示样本**」可以一键塞入一段西班牙语投诉，立刻看到完整效果。
 
 生成之后：
-- 每条候选话术带**风格标签**（安抚致歉 / 专业答疑 / 营销促单 / 纠纷调解 / 合规告知）
-- 右上角语言选择器决定「复制」时复制哪种语言
+
+**每条候选话术是一个上下分割的双语卡片**（因为我们是面向境外的，客服需要"能直接发出去的"和"自己看得懂的"同时在场）：
+
+```
+┌─────────────────────────────────────────┐
+│ 安抚致歉   ★推荐   ✓合规通过            │  ← 风格 / 状态标签
+├─────────────────────────────────────────┤
+│ 发给客户 · English            [复制]     │  ← 上：客户语言，直接发给买家
+│ We are very sorry the quality issue...  │
+├═════════════════════════════════════════┤  ← 实线分割，一眼看出是两种语言
+│ 中文对照                      [复制]     │  ← 下：中文，客服自己核对内容
+│ 非常抱歉，这件商品的质量问题给您添麻烦… │
+├─────────────────────────────────────────┤
+│ [复制话术] [✓采纳] [✎修改后采纳] [✕忽略] │
+└─────────────────────────────────────────┘
+```
+
+- 上下**各自有独立复制按钮** —— 通常你只复制上面那段发给客户
+- 右上角语言选择器决定「上」是哪种语言（英文 / 西语 / 中文）
+- 选中文时只显示一块（避免中文重复两遍）
+- 目标语言暂时没有对应文案时（如某些风格暂无西语），会**自动回退英文并明确标注**，不会静默给你错的
 - **★ 推荐**标记的那条是系统认为最该用的
 - 底部 **采纳 / 修改后采纳 / 忽略** 会写进 `logs/qa_logs.jsonl` —— 这就是「数据闭环 Agent」的原料
 - 点右上角「**数据闭环**」看采纳率统计
@@ -291,14 +310,42 @@ powershell -ExecutionPolicy Bypass -File tools\test-model.ps1 -DryRun
 ## 七、自检（改完东西一定要跑）
 
 ```powershell
+# 后端逻辑（PowerShell）
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\selfcheck.ps1
+
+# 前端/扩展 JS —— 语法（Node 真解析）
+& "C:\Program Files\nodejs\node.exe" --check web\app.js
+Get-ChildItem -Recurse -Filter *.js web, extension | ForEach-Object { & "C:\Program Files\nodejs\node.exe" --check $_.FullName }
+
+# 前端渲染逻辑 —— 单元测试（Node 真执行）
+& "C:\Program Files\nodejs\node.exe" tools\test-render.js
 ```
 
-三部分检查：
+| 检查 | 覆盖内容 | 当前状态 |
+|---|---|---|
+| `selfcheck.ps1` | 126 条模板话术 × 25 条真实规则；7 个行为用例；26 条合规闸门单元测试 | ✅ 全部通过 |
+| `node --check` | 10 个 JS 文件（web + extension）的真语法解析 | ✅ 全部通过 |
+| `test-render.js` | 双语卡片渲染逻辑：上下分割、语言选择、回退提示、独立复制 | ✅ 22/22 通过 |
 
-1. **模板合规自检** —— 126 条模板话术 × 25 条真实规则，看有没有自己踩雷
-2. **行为用例回归** —— 7 个场景（含对抗样本）验证意图/情绪/紧急度/覆盖度/转人工/语言
-3. **合规闸门单元测试** —— 26 条故意违规的话术，验证拦截能力与误杀率
+> `tools\check-js.ps1` 是在**还没装 Node 时**写的替代方案（状态机做括号/字符串闭合校验）。
+> 现在已经装了 Node v24，**优先用 `node --check`**，那个才是真正的 JS 解析器。
+> `check-js.ps1` 保留作为无 Node 环境的兜底。
+
+### 布局自检（怀疑哪一列滚不动时用）
+
+浏览器按 **F12** 打开控制台，粘贴这段：
+
+```js
+[['左列','.col'],['中列-候选话术','#candidates'],['右列-分析结果','#analysis']].forEach(([n,sel])=>{
+  const el=document.querySelector(sel); if(!el){console.log(n,'找不到');return}
+  const can=el.scrollHeight>el.clientHeight;
+  const st=getComputedStyle(el);
+  console.log(`${n}  scrollH=${el.scrollHeight} clientH=${el.clientHeight} 可滚动=${can?'是':'(内容本来就装得下)'} overflow-y=${st.overflowY} minH=${st.minHeight}`);
+});
+```
+
+判读方法：如果某列 `scrollHeight > clientHeight` 但 `overflow-y` 不是 `auto/scroll`，
+或者列自己的高度被内容撑高了（列高 ≈ scrollHeight），就是布局链上某一级缺 `min-height:0`。
 
 **当前状态：全部通过。**
 
