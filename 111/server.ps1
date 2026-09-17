@@ -146,7 +146,13 @@ function Send-Response {
     200 { 'OK' } 400 { 'Bad Request' } 404 { 'Not Found' } 500 { 'Internal Server Error' }
     default { 'OK' }
   }
-  $head = "HTTP/1.1 $Status $statusText`r`nContent-Type: $ContentType`r`nContent-Length: $($Body.Length)`r`nConnection: close`r`nAccess-Control-Allow-Origin: *`r`nAccess-Control-Allow-Headers: Content-Type`r`nAccess-Control-Allow-Methods: GET, POST, OPTIONS`r`nCache-Control: no-store`r`n$ExtraHeaders`r`n"
+  # CORS 白名单：只放行本页面自身与浏览器扩展。
+  # 不再用 * —— 否则任意网页都能调用 /api/clipboard 读走你的剪贴板内容。
+  $corsLine = ''
+  if ($script:AllowOrigin) {
+    $corsLine = "Access-Control-Allow-Origin: $($script:AllowOrigin)`r`nVary: Origin`r`n"
+  }
+  $head = "HTTP/1.1 $Status $statusText`r`nContent-Type: $ContentType`r`nContent-Length: $($Body.Length)`r`nConnection: close`r`n${corsLine}Access-Control-Allow-Headers: Content-Type`r`nAccess-Control-Allow-Methods: GET, POST, OPTIONS`r`nCache-Control: no-store`r`n$ExtraHeaders`r`n"
   $headBytes = [System.Text.Encoding]::ASCII.GetBytes($head)
   $Stream.Write($headBytes, 0, $headBytes.Length)
   if ($Body.Length -gt 0) { $Stream.Write($Body, 0, $Body.Length) }
@@ -180,8 +186,28 @@ function Get-BodyRawString {
 # ---------------------------------------------------------------------
 # 路由
 # ---------------------------------------------------------------------
+# 只允许两类来源跨域访问本服务：
+#   1. 浏览器扩展（chrome-extension://）—— 扩展的 service worker 用这个来源发请求
+#   2. 本服务自己的页面（同源其实不需要 CORS 头，这里一并放行方便调试）
+# 其他任何网站都不给 CORS 头，浏览器会直接拦掉它们的请求。
+function Resolve-AllowOrigin {
+  param([string]$Origin)
+  if ([string]::IsNullOrWhiteSpace($Origin)) { return $null }
+  if ($Origin -like 'chrome-extension://*') { return $Origin }
+  if ($Origin -eq "http://127.0.0.1:$Port" -or $Origin -eq "http://localhost:$Port") { return $Origin }
+  return $null
+}
+
 function Handle-Request {
   param($Request, [System.Net.Sockets.NetworkStream]$Stream)
+
+  $script:AllowOrigin = $null
+  if ($Request.headers.ContainsKey('origin')) {
+    $script:AllowOrigin = Resolve-AllowOrigin -Origin $Request.headers['origin']
+    if (-not $script:AllowOrigin) {
+      Write-Host ("  [拒绝跨域] 来源 " + $Request.headers['origin']) -ForegroundColor DarkYellow
+    }
+  }
 
   $path = $Request.path
 

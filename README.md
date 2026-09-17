@@ -11,6 +11,7 @@
 |---|---|---|
 | `agent设计/` | 完整设计方案：1 主控 + 6 子 Agent 架构、7 份系统提示词、JSON Schema、知识库/数据库/合规规则库设计、千帆搭建手册、评测运营方案 | [`agent设计/00-交付总览.md`](agent设计/00-交付总览.md) |
 | `111/` | 可运行的本地演示：自动读取客服对话 → 意图情绪识别 → 知识库检索 → 生成候选话术 → 真实正则合规校验 | [`111/README.md`](111/README.md) |
+| `111/extension/` | **浏览器扩展原型**：在 TikTok Shop 商家后台右侧挂侧边栏，读对话 → 出话术 → 一键插入输入框 | [`111/extension/README.md`](111/extension/README.md) |
 
 原始需求文档：`汉正街跨境售后AI话术助手——基于百度千帆的多语言客服能力提升系统项目申报书(2).docx`
 
@@ -27,6 +28,7 @@
 ## 演示能做到什么
 
 - **自动读取对话**：窗口直读（UI Automation，直接拿文字）/ 剪贴板监听 / 读屏 OCR / 手动粘贴，四种方式
+- **浏览器扩展**：TikTok Shop 商家后台侧边栏，零复制粘贴，**一键插入输入框**；平台改版可用拾取器现场校准
 - **理解客户**：14 类意图识别、情绪强度、紧急度分级、风险标记
 - **检索知识**：18 条各国政策 + 46 条服装跨境术语，按国家/平台/生效日期过滤
 - **生成话术**：≤3 条候选，五种风格（安抚致歉 / 专业答疑 / 营销促单 / 纠纷调解 / 合规告知）
@@ -35,16 +37,19 @@
 - **数据闭环**：采纳 / 修改 / 忽略写回日志，统计采纳率
 - **模型接口已留好**：默认走本地规则；改一个配置 + 存一次密钥即可接千帆，失败自动回退
 - **API Key 安全**：DPAPI 加密存储、不出口前端、不进日志、不进 git（已做泄露审计）
+- **本地服务 CORS 白名单**：只放行浏览器扩展与本机页面，任意网站读不到剪贴板
 
 ## 自检
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File 111\tools\selfcheck.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File 111\tools\test-model.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File 111\tools\selfcheck.ps1   # 后端逻辑
+powershell -NoProfile -ExecutionPolicy Bypass -File 111\tools\check-js.ps1    # 扩展 JS
+powershell -NoProfile -ExecutionPolicy Bypass -File 111\tools\test-model.ps1 -DryRun  # 模型接入
 ```
 
-前者：模板合规自检（126 条话术 × 25 条规则）、7 个行为用例回归、26 条合规闸门单元测试。
-后者：模型接入自检（只打印请求形状，不发送、不打印密钥）。
+`selfcheck`：模板合规自检（126 条话术 × 25 条规则）、7 个行为用例回归、26 条合规闸门单元测试。
+`check-js`：扩展 9 个 JS 文件的结构校验 + manifest 引用检查（本机无 Node，故自建）。
+`test-model`：模型接入自检，只打印请求形状，不发送、不打印密钥。
 
 ---
 
