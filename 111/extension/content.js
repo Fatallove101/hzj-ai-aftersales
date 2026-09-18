@@ -35,6 +35,7 @@
   };
 
   const PANEL_W = 392;
+  const SERVER_URL = 'http://127.0.0.1:8799';   // 与 background.js 的 SERVER 保持一致，界面上会显示出来便于排查
   const HOST = location.hostname;
   const STORE_KEY = 'site:' + HOST;
 
@@ -224,8 +225,12 @@
   const RISK_ZH = { chargeback_risk: '拒付风险', platform_intervention_risk: '平台介入风险', legal_risk: '法律风险', public_opinion_risk: '舆情风险', repeat_complaint: '重复投诉', minor_involved: '涉未成年人' };
 
   function renderIdle(msgHtml) {
-    body.innerHTML = '';
-    body.appendChild(h('div', { class: 'empty', html: msgHtml || '还没有读取对话<br>点下面的「读取并生成话术」' }));
+    // ⚠️ 这里**不能**写 body.innerHTML = ''。
+    //    那会把上面刚加的"连不上本地服务"横幅和适配器信息一起擦掉，
+    //    用户只看到一个空面板，根本没法排查（v0.9 踩过这个坑）。
+    const prev = body.querySelector ? body.querySelector('.idlebox') : null;
+    if (prev && prev.remove) prev.remove();
+    body.appendChild(h('div', { class: 'empty idlebox', html: msgHtml || '还没有读取对话<br>点下面的「读取并生成话术」' }));
   }
 
   function render() {
@@ -250,13 +255,29 @@
 
   function renderInner() {
 
-    // 服务状态
+    // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
-      body.appendChild(h('div', {
-        class: 'banner err',
-        html: '<b>连不上本地服务</b><br>' + esc(state.serverMsg || '') +
-              '<br><br>请在项目目录运行：<br><code style="font-size:11px">111\\启动.bat</code>'
+      const ban = h('div', { class: 'banner err' });
+      ban.appendChild(h('div', {
+        html: '<b>连不上本地服务</b><br>' +
+              '<code style="font-size:10.5px;background:#0a0d12;padding:2px 5px;border-radius:3px">' +
+              esc(SERVER_URL) + '/api/health</code><br>' +
+              '<span style="color:#fecaca;font-size:11px">' + esc(state.serverMsg || '(没有拿到错误信息)') + '</span>' +
+              '<br><br>请确认已在项目目录运行：<br><code style="font-size:10.5px">111\\启动.bat</code>'
       }));
+      const btnRetry = h('button', { class: 'btn sm', text: '↻ 重试连接' });
+      btnRetry.onclick = async () => {
+        btnRetry.textContent = '连接中…'; btnRetry.disabled = true;
+        const hp = await msg('health');
+        state.serverOk = !!(hp && hp.ok);
+        state.serverMsg = state.serverOk ? '' : ((hp && hp.error) || '未知错误');
+        setStatus(state.serverOk, state.serverOk ? '已连接' : '未连接');
+        render();
+      };
+      ban.appendChild(h('div', { style: 'margin-top:9px' }, [btnRetry]));
+      body.appendChild(ban);
+    } else {
+      body.appendChild(h('div', { class: 'banner ok', text: '✓ 已连接本地服务 ' + SERVER_URL }));
     }
 
     // 适配器
