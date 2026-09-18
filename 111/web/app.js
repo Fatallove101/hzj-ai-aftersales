@@ -168,31 +168,43 @@ function renderChat() {
 }
 
 /* ---------------- 技能中心 / 知识库 / 设置 ---------------- */
-function renderSkills() {
+async function renderSkills() {
   const box = $('#skillGrid');
   if (!box) return;
-  const skills = [
-    { name:'话术风格模板', tag:'内置', desc:'五种风格：安抚致歉 / 专业答疑 / 营销促单 / 纠纷调解 / 合规告知。可覆盖为商户专属版本。', meta:['style_templates','14 意图 × 3 风格'] },
-    { name:'服装跨境术语表', tag:'内置', desc:'中英西德法五语术语库，翻译与回译共用，禁止机翻硬译。', meta:['glossary','46 条'] },
-    { name:'意图关键词库', tag:'内置', desc:'14 类意图的多语言信号词，意图识别的召回来源。', meta:['intent_taxonomy','14 类'] },
-    { name:'合规规则库', tag:'内置', desc:'25 条规则，正则可执行。⚠️ 状态为 seed，上线前须法务确认。', meta:['compliance_rules','25 条'] },
-    { name:'（待接入）商户专属技能', tag:'规划中', desc:'上传 .md / .yml 覆盖上述任一层，后端接口就绪后开放。', meta:['skill_import','v2'] }
-  ];
+  box.innerHTML = '<div class="hint">正在加载技能…</div>';
+  let data = null;
+  try { data = await fetch('/api/skills').then(r => r.json()); } catch (e) {}
+  if (!data || !data.ok || !data.skills) {
+    box.innerHTML = '<div class="hint">读不到技能列表（本地服务未启动？）</div>';
+    return;
+  }
+  const PRI = { P0:'#fca5a5', P1:'#fcd34d', P2:'#94a3b8' };
+  const MODE = { read:'只读', draft:'生成草稿', commit:'写入（需确认）', async_task:'异步任务' };
   box.innerHTML = '';
-  skills.forEach(s => {
+  const wrap = el('div');
+  wrap.appendChild(el('div', 'tiny', `已加载 <b>${data.count}</b> 个技能 · 位于 111/skills/ · 格式为 SKILL.md（YAML frontmatter + Markdown 指令）`));
+  box.appendChild(wrap);
+
+  data.skills.forEach(sk => {
     const c = el('div', 'skillcard');
     const nm = el('div', 'sk-name');
-    nm.appendChild(el('span', null, esc(s.name)));
-    nm.appendChild(el('span', 'tag', esc(s.tag)));
+    nm.appendChild(el('span', null, esc(sk.name_zh)));
+    nm.appendChild(el('span', 'tag', esc(sk.priority)));
+    nm.appendChild(el('span', 'tag', esc(sk.version)));
     c.appendChild(nm);
-    c.appendChild(el('div', 'sk-desc', esc(s.desc)));
+    c.appendChild(el('div', 'sk-desc', esc(sk.description)));
+    const mount = '挂载：<b>' + esc(sk.target_agent || '-') + '</b> · 写入模式：' + esc(MODE[sk.action_mode] || sk.action_mode) +
+                  (sk.requires_confirmation ? ' · <span style="color:#fcd34d">需人工确认</span>' : '');
+    c.appendChild(el('div', 'tiny', mount));
     const meta = el('div', 'sk-meta');
-    s.meta.forEach(m => meta.appendChild(el('span', null, esc(m))));
+    meta.appendChild(el('span', null, 'id: ' + esc(sk.name)));
+    meta.appendChild(el('span', null, '触发词 ' + (sk.triggers || []).length));
+    meta.appendChild(el('span', null, '正文 ' + sk.body_lines + ' 行'));
+    meta.appendChild(el('span', null, esc(sk.file)));
     c.appendChild(meta);
     box.appendChild(c);
   });
 }
-
 function renderKB() {
   const box = $('#kbTable');
   if (!box) return;
@@ -852,6 +864,10 @@ function emitResultLog(res) {
       pushLog('intent', 'warn', '风险标记：' + a.risk_flags.map(r => esc(RISK_ZH[r] || r)).join('、'), null, 'agent');
     }
   }
+  // 技能命中（触发词机制：不是全量塞进提示词，只取本次相关的）
+  if (mt.skills && mt.skills.length) {
+    pushLog('skill', 'ok', '按触发词命中 <b>' + mt.skills.length + '</b> 个技能：' + mt.skills.map(esc).join('、'), null, 'agent');
+  }
   // 查询改写
   if (rt && rt.queries) {
     pushLog('rewrite', 'ok', `生成 <b>${rt.queries.length}</b> 条检索 query · 路由 ${(rt.kb_route || []).map(esc).join(' / ')}`, null, 'agent');
@@ -924,7 +940,7 @@ Seller: Let me look into it for you right away.`;
 
 // 左侧导航
 document.querySelectorAll('#sideNav .nav-item').forEach(b => {
-  b.onclick = () => setPage(b.dataset.page);
+  b.onclick = () => { setPage(b.dataset.page); location.hash = b.dataset.page; };
 });
 
 // 对话内容变化 → 实时重绘气泡与统计
@@ -1012,6 +1028,10 @@ document.addEventListener('drop', (e) => {
   };
   fr.readAsDataURL(f);
 });
+
+// 页面深链：#workbench / #tasks / #skills / #kb / #settings
+var _hashPage = (location.hash || '').replace('#','').trim();
+if (_hashPage && PAGE_TITLE[_hashPage]) setPage(_hashPage); else setPage('workbench');
 
 renderChat();
 renderLog();

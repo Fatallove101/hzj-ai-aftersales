@@ -485,6 +485,10 @@ function Invoke-Pipeline {
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
   $modelUsed = @()
 
+  # --- 技能匹配：按触发词只取本次真正相关的技能（不是全量塞进提示词）---
+  $matchedSkills = @()
+  try { $matchedSkills = @(Select-SkillsByTrigger -Text $Text -Max 4) } catch { }
+
   # --- A1 语言识别 ---
   $lang = Get-LanguageGuess -Text $Text
 
@@ -651,6 +655,8 @@ function Invoke-Pipeline {
       mode           = (Get-ModelStatus).mode
       generated_by   = $generatedBy
       model_used     = $modelUsed
+      skills         = @($matchedSkills | ForEach-Object { $_.name })
+      skills_detail  = @($matchedSkills)
       degraded_nodes = @(
         if ($lang -ne 'zh' -and -not $modelTranslation) { 'translate_agent（未接入，本地术语命中）' }
         if ($generatedBy -eq 'local-template') { 'generate_agent（未接入，本地模板）' }

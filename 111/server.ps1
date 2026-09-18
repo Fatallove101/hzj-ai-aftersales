@@ -24,6 +24,7 @@ foreach ($d in @($LogDir, $TmpDir)) { if (-not (Test-Path $d)) { New-Item -ItemT
 . (Join-Path $Root 'engine\ocr.ps1')
 . (Join-Path $Root 'engine\reader.ps1')
 . (Join-Path $Root 'engine\llm.ps1')
+. (Join-Path $Root 'engine\skills.ps1')
 . (Join-Path $Root 'engine\pipeline.ps1')
 
 Write-Host ""
@@ -36,6 +37,10 @@ Write-Host ("  知识库加载完成：合规规则 {0} 条 / 术语 {1} 条 / �
   $counts.compliance_rules, $counts.glossary, $counts.policy_index, $counts.intent_taxonomy) -ForegroundColor Green
 
 $llmInfo = Initialize-Llm -Root $Root
+
+# 技能：扫描 skills\*.md
+$skillCount = Initialize-Skills -Dir (Join-Path $Root 'skills')
+Write-Host ("  技能加载完成：{0} 个（{1}）" -f $skillCount, ((Get-Skills | ForEach-Object { $_.name }) -join ', ')) -ForegroundColor Green
 
 $ocrLangs = @(Get-OcrAvailableLanguages)
 if ($ocrLangs.Count -gt 0) {
@@ -263,6 +268,19 @@ function Handle-Request {
     } catch {
       Send-Json -Stream $Stream -Object @{ ok = $false; error = $_.Exception.Message } -Status 500
     }
+    return
+  }
+
+  # 技能清单（技能中心页读这个）
+  if ($path -eq '/api/skills' -and $Request.method -eq 'GET') {
+    Send-Json -Stream $Stream -Object @{ ok = $true; count = @(Get-Skills).Count; skills = @(Get-Skills | ForEach-Object {
+      [pscustomobject]@{
+        name = $_.name; name_zh = $_.name_zh; description = $_.description
+        version = $_.version; domain = $_.domain; priority = $_.priority
+        target_agent = $_.target_agent; action_mode = $_.action_mode
+        requires_confirmation = $_.requires_confirmation
+        triggers = @($_.triggers); file = $_.file; body_lines = $_.body_lines
+      } }) }
     return
   }
 

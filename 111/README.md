@@ -45,6 +45,80 @@
 
 ---
 
+## 技能系统（111/skills/）
+
+**技能 = 一个 Markdown 文件**，YAML frontmatter 放元数据，正文放指令。可增删，加载器零依赖。
+
+### 格式（照着现有 6 个改即可）
+
+```yaml
+---
+name: customer-reply-craft        # 技能 id
+name_zh: 售后话术生成              # 中文名（界面显示）
+description: 四大售后场景 × 五级情绪安抚策略
+version: v1.0
+domain: after_sales
+priority: P0                       # P0/P1/P2，影响匹配排序
+target_agent: generate             # 挂载到哪个 Agent
+action_mode: draft                 # read / draft / commit / async_task
+requires_confirmation: true        # 受控写入：需人工确认
+triggers: [话术, 回复, 怎么回, reply]        # 触发词（权重 3）
+discovery_terms: [安抚, 退款, 换货, 政策]   # 发现词（权重 1）
+---
+
+## 指令
+（Markdown 正文，接模型后作为 system prompt 片段注入）
+```
+
+### 内置 6 个技能
+
+| 技能 | 优先级 | 挂载 | 写入模式 |
+|---|---|---|---|
+| `customer-reply-craft` 售后话术生成 | P0 | generate | 草稿 · **需确认** |
+| `after-sales-qa` 售后知识问答与引用 | P0 | retrieve | 只读 |
+| `ecommerce-intent-routing` 电商意图识别与工单路由 | P0 | intent | 只读 |
+| `emotion-reading` 情绪读空气 | P1 | intent | 只读 |
+| `cross-border-escalation` 跨境合规与危机升级 | P1 | compliance | 只读 · **需确认** |
+| `offline-fallback` 离线兜底话术 | P2 | generate | 草稿 · **需确认** |
+
+### 触发词机制（为什么要有）
+
+**不是把 6 个技能全量塞进提示词**——那样每次调用都浪费大量 token。
+加载器按输入文本匹配 `triggers`(权重3) + `discovery_terms`(权重1)，
+只把**本次真正相关**的技能送进管线（默认最多 4 个）。实测：
+
+| 输入 | 命中 |
+|---|---|
+| 这条裙子到货有污渍，我要退款 | customer-reply-craft, ecommerce-intent-routing |
+| 请问这个面料怎么洗 | customer-reply-craft |
+| 再不处理我就去平台投诉 | emotion-reading |
+| 欧盟客户的退货政策是什么 | after-sales-qa, customer-reply-craft, cross-border-escalation |
+
+命中结果写进 `meta.skills`，并显示在底部**运行日志**里。
+
+### 设计来源（不是凭空造的）
+
+| 借鉴 | 来源 |
+|---|---|
+| `action_mode` / `requires_confirmation`（受控写入） | `Eleven617/mall-ai-after-sales-platform` ★114 的 `app/skills/catalog.py` |
+| `triggers` frontmatter 写法 | `akshaykokane/Building-Customer-Service-Agent-with-Skill.md-and-Agent-Framework` 的真实 `SKILL.md` |
+
+### 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/skills` | 返回全部技能的元数据（不含正文），技能中心页读它 |
+
+> ⚠️ 当前 `pipeline.ps1` 用本地模板生成，**技能正文还没注入提示词**。
+> 接上千帆后把 `Get-SkillPromptBlock` 的结果拼进 system prompt 即可——函数已写好。
+
+### 页面深链
+
+支持 `#workbench` / `#tasks` / `#skills` / `#kb` / `#settings`，例如
+<http://127.0.0.1:8799/#skills> 直达技能中心。
+
+---
+
 ## 一、30 秒跑起来
 
 双击 **`启动.bat`** → 浏览器会自动打开 <http://127.0.0.1:8799/>
