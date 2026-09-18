@@ -152,12 +152,28 @@ function Send-Response {
     default { 'OK' }
   }
   # CORS 白名单：只放行本页面自身与浏览器扩展。
-  # 不再用 * —— 否则任意网页都能调用 /api/clipboard 读走你的剪贴板内容。
+  # 不用 * —— 否则任意网页都能调用 /api/clipboard 读走你的剪贴板内容。
+  #
+  # ⚠️ 两个容易被忽略但必须发的头：
+  #   1) Access-Control-Allow-Private-Network: true
+  #      Chrome/Edge 的「私有网络访问」限制：从公网页面（如 baidu.com）发起的请求
+  #      要访问 127.0.0.1 这类本地地址时，服务器必须显式允许，
+  #      否则预检直接失败 —— 表现就是扩展里一直显示"未连接"。
+  #   2) 回显 Access-Control-Request-Headers
+  #      预检请求带什么头，响应就得允许什么头，否则预检不通过。
   $corsLine = ''
   if ($script:AllowOrigin) {
-    $corsLine = "Access-Control-Allow-Origin: $($script:AllowOrigin)`r`nVary: Origin`r`n"
+    $allowHeaders = 'Content-Type'
+    if ($script:ReqAllowHeaders) { $allowHeaders = $allowHeaders + ', ' + $script:ReqAllowHeaders }
+    $corsLine = "Access-Control-Allow-Origin: $($script:AllowOrigin)`r`n" +
+                "Vary: Origin, Access-Control-Request-Headers, Access-Control-Request-Private-Network`r`n" +
+                "Access-Control-Allow-Private-Network: true`r`n" +
+                "Access-Control-Max-Age: 600`r`n"
+    $head = "HTTP/1.1 $Status $statusText`r`nContent-Type: $ContentType`r`nContent-Length: $($Body.Length)`r`nConnection: close`r`n${corsLine}Access-Control-Allow-Headers: $allowHeaders`r`nAccess-Control-Allow-Methods: GET, POST, OPTIONS`r`nCache-Control: no-store`r`n$ExtraHeaders`r`n"
+  } else {
+    # 同源或未识别来源：不发任何 CORS 头
+    $head = "HTTP/1.1 $Status $statusText`r`nContent-Type: $ContentType`r`nContent-Length: $($Body.Length)`r`nConnection: close`r`nAccess-Control-Allow-Headers: Content-Type`r`nAccess-Control-Allow-Methods: GET, POST, OPTIONS`r`nCache-Control: no-store`r`n$ExtraHeaders`r`n"
   }
-  $head = "HTTP/1.1 $Status $statusText`r`nContent-Type: $ContentType`r`nContent-Length: $($Body.Length)`r`nConnection: close`r`n${corsLine}Access-Control-Allow-Headers: Content-Type`r`nAccess-Control-Allow-Methods: GET, POST, OPTIONS`r`nCache-Control: no-store`r`n$ExtraHeaders`r`n"
   $headBytes = [System.Text.Encoding]::ASCII.GetBytes($head)
   $Stream.Write($headBytes, 0, $headBytes.Length)
   if ($Body.Length -gt 0) { $Stream.Write($Body, 0, $Body.Length) }
@@ -207,6 +223,8 @@ function Handle-Request {
   param($Request, [System.Net.Sockets.NetworkStream]$Stream)
 
   $script:AllowOrigin = $null
+  $script:ReqAllowHeaders = ''
+  if ($Request.headers.ContainsKey('access-control-request-headers')) { $script:ReqAllowHeaders = $Request.headers['access-control-request-headers'] }
   if ($Request.headers.ContainsKey('origin')) {
     $script:AllowOrigin = Resolve-AllowOrigin -Origin $Request.headers['origin']
     if (-not $script:AllowOrigin) {

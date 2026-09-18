@@ -34,6 +34,7 @@
     platform: 'unknown'
   };
 
+  const PANEL_W = 392;
   const HOST = location.hostname;
   const STORE_KEY = 'site:' + HOST;
 
@@ -67,9 +68,9 @@
   }
 
   const CSS = `
-:host{all:initial}
+:host{all:initial;--panelw:392px}
 *{box-sizing:border-box;font-family:"Microsoft YaHei","Segoe UI",system-ui,sans-serif}
-.panel{position:fixed;top:0;right:0;width:392px;height:100vh;background:#0e1116;color:#e6e9ef;
+.panel{position:fixed;top:0;right:0;width:var(--panelw);height:100vh;background:#0e1116;color:#e6e9ef;
   border-left:1px solid #252c38;display:flex;flex-direction:column;z-index:2147483645;
   box-shadow:-8px 0 28px rgba(0,0,0,.45);font-size:13px;line-height:1.55}
 .panel.hidden{display:none}
@@ -177,6 +178,20 @@
     state.visible = v;
     panel.classList.toggle('hidden', !v);
     fab.classList.toggle('hidden', v);
+    // 把宿主页面往左挤，避免侧边栏盖住内容。
+    // 纯 fixed 覆盖会挡住页面主体，坐席就没法一边看对话一边看话术了。
+    try {
+      const html = document.documentElement;
+      if (v) {
+        if (state._prevMargin === undefined) state._prevMargin = html.style.marginRight || '';
+        html.style.transition = 'margin-right .18s ease';
+        html.style.marginRight = PANEL_W + 'px';
+        html.style.overflowX = 'hidden';
+      } else {
+        html.style.marginRight = state._prevMargin || '';
+        html.style.overflowX = '';
+      }
+    } catch (e) { /* 个别页面可能不允许改根元素，忽略即可 */ }
   }
 
   function setStatus(ok, text) {
@@ -216,6 +231,24 @@
   function render() {
     if (!shadow) return;
     body.innerHTML = '';
+    try { renderInner(); }
+    catch (err) {
+      const m = (err && (err.stack || err.message)) || String(err);
+      console.error('[售后助手] 渲染失败', err);
+      body.appendChild(h('div', {
+        class: 'banner err',
+        html: '<b>渲染失败</b><br>' + esc(m).replace(/\n/g, '<br>')
+      }));
+      if (state.lastResult) {
+        body.appendChild(h('div', { class: 'card' }, [
+          h('div', { class: 'sec', text: '后端返回的原始字段' }),
+          h('div', { class: 'tiny', text: Object.keys(state.lastResult).join('、') })
+        ]));
+      }
+    }
+  }
+
+  function renderInner() {
 
     // 服务状态
     if (!state.serverOk) {
@@ -579,6 +612,30 @@
   async function boot() {
     buildPanel();
     setVisible(true);
+    try {
+      await bootInner();
+    } catch (err) {
+      // 关键：任何初始化异常都要**显示出来**。
+      // 之前异常会让面板一片空白 + 底部只写"未连接"，根本没法排查。
+      const m = (err && (err.stack || err.message)) || String(err);
+      console.error('[售后助手] 初始化失败', err);
+      setStatus(false, '初始化失败');
+      body.innerHTML = '';
+      body.appendChild(h('div', {
+        class: 'banner err',
+        html: '<b>扩展初始化失败</b><br>' + esc(m).replace(/\n/g, '<br>') +
+              '<br><br>请把这张截图反馈给开发者。'
+      }));
+      const info = h('div', { class: 'card' }, [h('div', { class: 'sec', text: '环境信息' })]);
+      info.appendChild(h('div', { class: 'kv' }, [h('span', { text: '页面' }), h('span', { text: location.hostname })]));
+      info.appendChild(h('div', { class: 'kv' }, [h('span', { text: '协议' }), h('span', { text: location.protocol })]));
+      info.appendChild(h('div', { class: 'kv' }, [h('span', { text: 'AIH 已加载' }), h('span', { text: String(!!window.AIH) })]));
+      info.appendChild(h('div', { class: 'kv' }, [h('span', { text: '适配器' }), h('span', { text: state.adapter ? state.adapter.id : '(未识别)' })]));
+      body.appendChild(info);
+    }
+  }
+
+  async function bootInner() {
 
     state.adapter = AIH.Adapters.detect();
     // 平台默认值
