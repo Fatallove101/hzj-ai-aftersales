@@ -255,6 +255,12 @@ function Handle-Request {
     Write-ReqLog -Line ((Get-Date -Format 'HH:mm:ss') + '  ' + $Request.method + ' ' + $path +
                         '  bodyLen=' + $Request.body.Length + '  origin=' + $org)
     Write-ReqLog -Line ('            headers: ' + ($hdr -join ' | '))
+    if ($Request.body.Length -gt 0) {
+      $bt = ''
+      try { $bt = [System.Text.Encoding]::UTF8.GetString($Request.body) } catch { $bt = '(解码失败)' }
+      if ($bt.Length -gt 260) { $bt = $bt.Substring(0, 260) + '…' }
+      Write-ReqLog -Line ('            body: ' + $bt)
+    }
   } catch { }
 
   if ($Request.method -eq 'OPTIONS') {

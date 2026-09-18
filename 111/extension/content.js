@@ -23,6 +23,7 @@
     lastText: '',
     lastResult: null,
     serverOk: false,
+    lastError: '',
     serverMsg: '',
     watching: false,
     timer: null,
@@ -280,6 +281,20 @@
       body.appendChild(h('div', { class: 'banner ok', text: '✓ 已连接本地服务 ' + SERVER_URL }));
     }
 
+    // 上一次请求失败（连接是好的，只是这次调用出错）—— 必须和"未连接"区分开
+    if (state.lastError) {
+      const eb = h('div', { class: 'banner warn' });
+      eb.appendChild(h('div', { html: '<b>上次请求失败</b>（服务连接正常）' }));
+      eb.appendChild(h('div', {
+        style: 'margin-top:5px;font-size:11px;white-space:pre-wrap;word-break:break-word',
+        text: state.lastError
+      }));
+      const btnClr = h('button', { class: 'btn sm ghost', text: '知道了' });
+      btnClr.onclick = () => { state.lastError = ''; render(); };
+      eb.appendChild(h('div', { style: 'margin-top:8px' }, [btnClr]));
+      body.appendChild(eb);
+    }
+
     // 适配器
     const ad = state.adapter;
     body.appendChild(h('div', { class: 'card' }, [
@@ -504,6 +519,14 @@
       return;
     }
     const text = AIH.messagesToText(state.messages, 20);
+    // 发送前先自检：文本为空就别浪费一次请求（服务端会回 400 "text 不能为空"）
+    if (!text || !text.trim()) {
+      state.lastError = '提取到的对话文本为空（识别到 ' + state.messages.length +
+        ' 个元素但没有可读文字）。请用底部 ⚙ 重新拾取消息区。';
+      toast('没读到有效文字，请拾取消息区', false);
+      render();
+      return;
+    }
     if (text === state.lastText && state.lastResult) { render(); return; }
 
     state.busy = true;
@@ -514,12 +537,15 @@
     state.busy = false;
 
     if (!res || !res.ok) {
-      state.serverOk = false;
-      state.serverMsg = (res && res.error) || '未知错误';
-      setStatus(false, '未连接');
+      // ⚠️ 这里**绝对不能**把 serverOk 改成 false。
+      //    /api/health 可能一直是通的，这只是"这一次 analyze 失败了"。
+      //    之前这么写导致界面把请求失败误报成"未连接"，排查绕了一大圈。
+      state.lastError = (res && res.error) || '未知错误';
+      toast('生成失败（连接正常）', false);
       render();
       return;
     }
+    state.lastError = '';
     state.serverOk = true;
     state.lastText = text;
     state.lastResult = res.data.result;
