@@ -32,7 +32,7 @@ const RISK_ZH = { chargeback_risk:'拒付风险', platform_intervention_risk:'�
    所以这些不再是"要不要转人工"的理由，而是"人工回复前要小心的风险点"。 */
 const ESC_ZH = { critical_urgency:'紧急度极高', escalated_emotion:'情绪失控', high_value_dispute:'高价值纠纷',
   insufficient_knowledge:'知识库无依据', all_candidates_rejected:'全部候选被合规拦截',
-  platform_risk:'平台/拒付风险', legal_risk:'法律风险', customer_request:'客户要求主管介入',
+  platform_risk:'平台/拒付风险', legal_risk:'法律风险', customer_request:'客户要求主管介入', supervisor_required:'技能策略要求主管介入',
   low_acceptance:'连续未采纳', degraded_pipeline:'链路降级' };
 const ACTION_ZH = { accept:'采纳', edit:'修改后采纳', ignore:'忽略' };
 
@@ -184,6 +184,31 @@ async function renderSkills() {
   const wrap = el('div');
   wrap.appendChild(el('div', 'tiny', `已加载 <b>${data.count}</b> 个技能 · 位于 111/skills/ · 格式为 SKILL.md（YAML frontmatter + Markdown 指令）`));
   box.appendChild(wrap);
+
+  const pv = el('div', 'row', { });
+  const btnPv = el('button', 'btn ghost sm', '🔍 预览注入后的提示词');
+  btnPv.onclick = async () => {
+    const t = ($('#chatText') && $('#chatText').value.trim()) || '欧盟客户的退货政策是什么，客户要退款';
+    btnPv.textContent = '组装中…'; btnPv.disabled = true;
+    try {
+      const r = await fetch('/api/prompt-preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: t })
+      }).then(x => x.json());
+      if (!r.ok) { toast(r.error || '组装失败', false); return; }
+      $('#modalTitle').textContent = '注入后的系统提示词（真实组装结果）';
+      $('#modalBody').innerHTML =
+        '<div class="kv"><span>触发文本</span><span>' + esc(t.slice(0, 40)) + '</span></div>' +
+        '<div class="kv"><span>命中技能</span><span>' + esc(r.matched_skills.join('、')) + '</span></div>' +
+        '<div class="kv"><span>字符数</span><span>基础 ' + r.base_prompt_chars + ' + 技能 ' + r.skill_block_chars + ' = <b>' + r.total_chars + '</b></span></div>' +
+        '<div class="tiny" style="margin:10px 0 6px">接上模型后，这段内容会作为 system prompt 发出：</div>' +
+        '<pre style="max-height:46vh;overflow:auto;background:#0a0d12;padding:10px;border-radius:7px;font-size:11px;line-height:1.6;white-space:pre-wrap">' + esc(r.composed_prompt) + '</pre>';
+      $('#modal').classList.add('on');
+    } catch (e) { toast('失败：' + e.message, false); }
+    finally { btnPv.textContent = '🔍 预览注入后的提示词'; btnPv.disabled = false; }
+  };
+  pv.appendChild(btnPv);
+  wrap.appendChild(pv);
 
   data.skills.forEach(sk => {
     const c = el('div', 'skillcard');
@@ -763,6 +788,30 @@ function renderAnalysis(res) {
     box.appendChild(s2);
   }
 
+  // 工单路由 + SLA（来自 ecommerce-intent-routing 技能）
+  if (res.routing) {
+    const sr = el('div', 'an-sec');
+    sr.appendChild(el('div', 'an-title', '工单路由（技能驱动）'));
+    sr.appendChild(kv('分派组', '<b>' + esc(res.routing.group) + '</b>'));
+    sr.appendChild(kv('SLA 时限', esc(res.routing.sla)));
+    if (res.routing.risk && res.routing.risk !== '—') sr.appendChild(kv('风险提示', esc(res.routing.risk)));
+    sr.appendChild(el('div', 'tiny', '来源技能：' + esc(res.routing.source)));
+    box.appendChild(sr);
+  }
+
+  // 情绪安抚策略（来自 customer-reply-craft 技能，按情绪强度自动选级）
+  if (res.calming) {
+    const sc = el('div', 'an-sec');
+    sc.appendChild(el('div', 'an-title', '情绪安抚策略（技能驱动）'));
+    sc.appendChild(kv('情绪级别', '<b>' + res.calming.level + ' / 5</b>'));
+    sc.appendChild(kv('处理方式', esc(res.calming.action)));
+    if (res.calming.forbidden && res.calming.forbidden !== '—') {
+      sc.appendChild(kv('禁止', '<span style="color:#fca5a5">' + esc(res.calming.forbidden) + '</span>'));
+    }
+    sc.appendChild(el('div', 'tiny', '来源技能：' + esc(res.calming.source)));
+    box.appendChild(sc);
+  }
+
   const s3 = el('div', 'an-sec');
   s3.appendChild(el('div', 'an-title', '话术风格'));
   const p3 = el('div');
@@ -866,7 +915,10 @@ function emitResultLog(res) {
   }
   // 技能命中（触发词机制：不是全量塞进提示词，只取本次相关的）
   if (mt.skills && mt.skills.length) {
-    pushLog('skill', 'ok', '按触发词命中 <b>' + mt.skills.length + '</b> 个技能：' + mt.skills.map(esc).join('、'), null, 'agent');
+    pushLog('skill', 'ok',
+      '按触发词命中 <b>' + mt.skills.length + '</b> 个技能：' + mt.skills.map(esc).join('、') +
+      (mt.composed_prompt_chars ? ' · 注入提示词 <b>' + mt.composed_prompt_chars + '</b> 字符' : ''), null, 'agent');
+    (res.skill_application || []).forEach(function (line) { pushLog('skill', 'ok', esc(line), null, 'agent'); });
   }
   // 查询改写
   if (rt && rt.queries) {

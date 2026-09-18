@@ -127,7 +127,16 @@ try {
         handoff_packet: { customer_text_raw: 'x', analysis_summary: '质量投诉 / negative-4 / critical',
           policy_evidence: [{ doc_id: 'ES-TRLGDCU-118', title: '西班牙商品瑕疵救济顺位', effective_date: '2014-03-27' }],
           rejected_candidates: [], suggested_next_step: '人工核对政策依据后再回复' } },
-      meta: { latency_ms: 812, mode: 'local-fallback', generated_by: 'local-template', model_used: [], degraded_nodes: [] }
+      routing: { group: '售后组', sla: '4h', risk: '超 ¥500 升级主管', source: 'ecommerce-intent-routing' },
+      calming: { level: 3, action: '致歉 + 承认体验不好 + 给选项', forbidden: '反复道歉、解释原因', source: 'customer-reply-craft' },
+      skill_application: [
+        '组装提示词：基础 5362 字符 + 技能正文 2409 字符 = 7803 字符',
+        '工单路由 → 分派「售后组」，SLA 4h',
+        '情绪策略 → 3 级：致歉 + 承认体验不好 + 给选项'
+      ],
+      meta: { latency_ms: 812, mode: 'local-fallback', generated_by: 'local-template', model_used: [],
+              skills: ['after-sales-qa', 'customer-reply-craft', 'ecommerce-intent-routing', 'cross-border-escalation'],
+              composed_prompt_chars: 7803, degraded_nodes: [] }
     };
   }
 

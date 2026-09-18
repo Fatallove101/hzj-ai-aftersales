@@ -519,6 +519,59 @@ function Invoke-Pipeline {
   if ($lang -eq 'zh') { $glossaryHits = @(Get-GlossaryHits -Text $Text) }
   else                { $glossaryHits = @(Get-GlossaryHitsByForeign -Text $Text) }
 
+  # =====================================================================
+  # 技能正文注入（三层，都是真的在用，不是摆设）
+  #   ① 组装 composed_prompt —— 接模型后直接发送，现在可预览
+  #   ② 工单路由 + SLA —— 解析自 ecommerce-intent-routing.md 的表格
+  #   ③ 情绪安抚策略 —— 解析自 customer-reply-craft.md，并据此改变程序行为
+  # 技能 md 是唯一真源：改表格里的值，程序行为跟着变。
+  # =====================================================================
+  $skillNames   = @($matchedSkills | ForEach-Object { $_.name })
+  $composedPrompt = ''
+  $skillApps    = @()
+  $forceSupervisor = $false
+
+  try {
+    $basePrompt = Get-AgentPrompt -Name 'generate'
+    $skillBlock = Get-SkillPromptBlock -Names $skillNames
+    if ($basePrompt -or $skillBlock) {
+      $composedPrompt = ($basePrompt + "`n`n===== 本次命中技能（按触发词自动选取） =====`n`n" + $skillBlock).Trim()
+    }
+    if ($composedPrompt) {
+      $skillApps += "组装提示词：基础 $($basePrompt.Length) 字符 + 技能正文 $($skillBlock.Length) 字符 = $($composedPrompt.Length) 字符"
+    }
+  } catch { }
+
+  # ① 工单路由（技能表格驱动）
+  $routing = $null
+  try {
+    $row = Get-SkillTableRow -SkillName 'ecommerce-intent-routing' `
+             -RequiredColumns @('意图','分派组','SLA') `
+             -MatchColumn '意图' -MatchValue $analysis.primary_intent
+    if ($row) {
+      $routing = [pscustomobject]@{
+        group = $row.'分派组'; sla = $row.'SLA'; risk = $row.'风险标志'; source = 'ecommerce-intent-routing'
+      }
+      $skillApps += "工单路由 → 分派「$($row.'分派组')」，SLA $($row.'SLA')"
+    }
+  } catch { }
+
+  # ② 情绪安抚策略（技能表格驱动，且据此改变行为）
+  $calming = $null
+  try {
+    $lvl = [string]$analysis.emotion.intensity
+    $row2 = Get-SkillTableRow -SkillName 'customer-reply-craft' `
+              -RequiredColumns @('级别','处理方式') `
+              -MatchColumn '级别' -MatchValue $lvl
+    if ($row2) {
+      $calming = [pscustomobject]@{
+        level = $analysis.emotion.intensity; action = $row2.'处理方式'
+        forbidden = $row2.'绝对禁止'; source = 'customer-reply-craft'
+      }
+      $skillApps += "情绪策略 → $lvl 级：$($row2.'处理方式')"
+      if ($row2.'处理方式' -match '主管') { $forceSupervisor = $true }
+    }
+  } catch { }
   # --- A4 话术生成：优先模型，失败/未接入则回退模板 ---
   $candidates = @()
   $generatedBy = 'local-template'
@@ -590,6 +643,7 @@ function Invoke-Pipeline {
   elseif ($retrieval.coverage -eq 'insufficient')          { $needHuman = $true; $reason = 'insufficient_knowledge' }
   elseif ($survivors.Count -eq 0)                          { $needHuman = $true; $reason = 'all_candidates_rejected' }
   elseif (@($analysis.risk_flags | Where-Object { $_ -in @('legal_risk','platform_intervention_risk','chargeback_risk') }).Count -gt 0) { $needHuman = $true; $reason = 'platform_risk' }
+  elseif ($forceSupervisor)                               { $needHuman = $true; $reason = 'supervisor_required' }
   elseif ($analysis.need_human_hint)                       { $needHuman = $true; $reason = 'escalated_emotion' }
 
   $handoff = $null
@@ -643,6 +697,9 @@ function Invoke-Pipeline {
     }
     candidates = $candidates
     compliance = $compliance
+    routing            = $routing
+    calming            = $calming
+    skill_application  = @($skillApps)
     final = [pscustomobject]@{
       recommended_candidate_id = $recommended
       reply_text_zh = $replyZh
@@ -655,7 +712,8 @@ function Invoke-Pipeline {
       mode           = (Get-ModelStatus).mode
       generated_by   = $generatedBy
       model_used     = $modelUsed
-      skills         = @($matchedSkills | ForEach-Object { $_.name })
+      skills         = @($skillNames)
+      composed_prompt_chars = $composedPrompt.Length
       skills_detail  = @($matchedSkills)
       degraded_nodes = @(
         if ($lang -ne 'zh' -and -not $modelTranslation) { 'translate_agent（未接入，本地术语命中）' }

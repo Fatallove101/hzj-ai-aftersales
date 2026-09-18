@@ -271,6 +271,32 @@ function Handle-Request {
     return
   }
 
+  # 提示词预览：返回"如果接上模型，实际会发出去的 system prompt"
+  # 用于验证技能正文是否真的被注入（内容是基础提示词 + 命中技能的正文）
+  if ($path -eq '/api/prompt-preview' -and $Request.method -eq 'POST') {
+    $b = Get-BodyJson -Request $Request
+    $text = ''
+    if ($null -ne $b -and $b.PSObject.Properties.Name -contains 'text') { $text = [string]$b.text }
+    try {
+      $matched = @(Select-SkillsByTrigger -Text $text -Max 4)
+      $names   = @($matched | ForEach-Object { $_.name })
+      $base    = Get-AgentPrompt -Name 'generate'
+      $block   = Get-SkillPromptBlock -Names $names
+      $composed = ($base + "`n`n===== 本次命中技能（按触发词自动选取） =====`n`n" + $block).Trim()
+      Send-Json -Stream $Stream -Object @{
+        ok = $true
+        matched_skills = $names
+        matched_detail = @($matched)
+        base_prompt_chars = $base.Length
+        skill_block_chars = $block.Length
+        total_chars = $composed.Length
+        composed_prompt = $composed
+      }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok = $false; error = $_.Exception.Message } -Status 500
+    }
+    return
+  }
   # 技能清单（技能中心页读这个）
   if ($path -eq '/api/skills' -and $Request.method -eq 'GET') {
     Send-Json -Stream $Stream -Object @{ ok = $true; count = @(Get-Skills).Count; skills = @(Get-Skills | ForEach-Object {

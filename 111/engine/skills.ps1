@@ -172,3 +172,65 @@ function Get-SkillPromptBlock {
   }
   return ($parts -join "`n`n")
 }
+
+# ---------------------------------------------------------------------
+# Markdown 表格解析
+#
+# 为什么要这个：技能正文不能只是"给模型看的文本"，否则在没接模型时
+# 它就是死的。把正文里的表格解析成结构化数据，本地方案也能**真正用上**技能。
+# 这样技能文件就是唯一真源 —— 改 md 里的表格，程序行为跟着变。
+# ---------------------------------------------------------------------
+function Get-SkillMarkdownTable {
+  param(
+    [Parameter(Mandatory)][string]$SkillName,
+    [Parameter(Mandatory)][string[]]$RequiredColumns
+  )
+  $sk = Get-SkillByName -Name $SkillName
+  if (-not $sk) { return @() }
+
+  $lines = $sk.body -split "`n"
+  $rows = @()
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    $line = $lines[$i].Trim()
+    if (-not $line.StartsWith('|')) { continue }
+
+    # 表头行
+    $cols = @($line.Trim('|') -split '\|' | ForEach-Object { $_.Trim() })
+    $missing = @($RequiredColumns | Where-Object { $cols -notcontains $_ })
+    if ($missing.Count -gt 0) { continue }
+
+    # 下一行必须是分隔行 |---|---|
+    if (($i + 1) -ge $lines.Count) { continue }
+    $sep = $lines[$i + 1].Trim()
+    if ($sep -notmatch '^\|[\s\-:\|]+\|$') { continue }
+
+    # 逐行取数据，遇到非表格行结束
+    for ($j = $i + 2; $j -lt $lines.Count; $j++) {
+      $r = $lines[$j].Trim()
+      if (-not $r.StartsWith('|')) { break }
+      $vals = @($r.Trim('|') -split '\|' | ForEach-Object { $_.Trim() })
+      if ($vals.Count -lt $cols.Count) { continue }
+      $obj = [ordered]@{}
+      for ($k = 0; $k -lt $cols.Count; $k++) { $obj[$cols[$k]] = $vals[$k] }
+      $rows += [pscustomobject]$obj
+    }
+    if ($rows.Count -gt 0) { break }   # 取第一张匹配的表
+  }
+  return $rows
+}
+
+# 取某个技能正文里的某一行（按某个列做模糊匹配）
+function Get-SkillTableRow {
+  param(
+    [Parameter(Mandatory)][string]$SkillName,
+    [Parameter(Mandatory)][string[]]$RequiredColumns,
+    [Parameter(Mandatory)][string]$MatchColumn,
+    [Parameter(Mandatory)][string]$MatchValue
+  )
+  $rows = Get-SkillMarkdownTable -SkillName $SkillName -RequiredColumns $RequiredColumns
+  foreach ($r in $rows) {
+    $v = [string]$r.$MatchColumn
+    if ($v -like "*$MatchValue*") { return $r }
+  }
+  return $null
+}
