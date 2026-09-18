@@ -122,6 +122,11 @@
 .vio.blk{background:rgba(239,68,68,.08);border-left-color:#ef4444}
 .tiny{font-size:11px;color:#6b7480;line-height:1.6}
 .empty{text-align:center;padding:28px 12px;color:#6b7480;font-size:12px;line-height:1.8}
+/* 政策依据 */
+.ev{background:#1c212b;border:1px solid #252c38;border-radius:7px;padding:8px 10px;margin-bottom:7px}
+.ev .evt{font-weight:600;font-size:12px;color:#c9d4e0;margin-bottom:3px}
+.ev .evs{font-size:11.5px;color:#98a2b3;line-height:1.6}
+.ev .evm{font-size:10px;color:#6b7480;margin-top:5px}
 .pv{max-height:96px;overflow-y:auto;background:#11151c;border:1px solid #252c38;border-radius:7px;
   padding:7px 8px;font-size:11.5px;color:#9fb0c4;white-space:pre-wrap;line-height:1.6}
 .fab{position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;z-index:2147483645;
@@ -200,7 +205,7 @@
 
   /* ---------------- 渲染 ---------------- */
   const COUNTRY_ZH = { UNKNOWN: '未知', ES: '西班牙', DE: '德国', FR: '法国', IT: '意大利', US: '美国', GB: '英国', NL: '荷兰', EU: '欧盟' };
-  const ESC_ZH = { critical_urgency: '紧急度极高', escalated_emotion: '情绪失控', high_value_dispute: '高价值纠纷', insufficient_knowledge: '知识库无依据', all_candidates_rejected: '全部候选被拦截', platform_risk: '平台/拒付风险', legal_risk: '法律风险', customer_request: '客户要求转人工', low_acceptance: '连续未采纳', degraded_pipeline: '链路降级' };
+  const ESC_ZH = { supervisor_required: '技能策略要求主管介入', critical_urgency: '紧急度极高', escalated_emotion: '情绪失控', high_value_dispute: '高价值纠纷', insufficient_knowledge: '知识库无依据', all_candidates_rejected: '全部候选被拦截', platform_risk: '平台/拒付风险', legal_risk: '法律风险', customer_request: '客户要求转人工', low_acceptance: '连续未采纳', degraded_pipeline: '链路降级' };
   const RISK_ZH = { chargeback_risk: '拒付风险', platform_intervention_risk: '平台介入风险', legal_risk: '法律风险', public_opinion_risk: '舆情风险', repeat_complaint: '重复投诉', minor_involved: '涉未成年人' };
 
   function renderIdle(msgHtml) {
@@ -253,7 +258,7 @@
     if (r.escalation && r.escalation.need_human) {
       body.appendChild(h('div', {
         class: 'banner err',
-        html: '<b>⚠ 建议转人工</b>（' + esc(ESC_ZH[r.escalation.reason] || r.escalation.reason || '') + '）<br>请先核对下方政策依据再回复。'
+        html: '<b>⚠ 高风险案件</b>（' + esc(ESC_ZH[r.escalation.reason] || r.escalation.reason || '') + '）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。'
       }));
     }
 
@@ -274,6 +279,56 @@
       c1.appendChild(p);
     }
     body.appendChild(c1);
+
+    // 工单路由 + SLA（技能驱动，来自 ecommerce-intent-routing）
+    if (r.routing) {
+      const cr = h('div', { class: 'card' }, [h('div', { class: 'sec', text: '工单路由（技能驱动）' })]);
+      cr.appendChild(h('div', { class: 'kv' }, [h('span', { text: '分派组' }), h('span', { text: r.routing.group })]));
+      cr.appendChild(h('div', { class: 'kv' }, [h('span', { text: 'SLA' }), h('span', { text: r.routing.sla })]));
+      if (r.routing.risk && r.routing.risk !== '—') {
+        cr.appendChild(h('div', { class: 'kv' }, [h('span', { text: '风险提示' }), h('span', { text: r.routing.risk })]));
+      }
+      body.appendChild(cr);
+    }
+
+    // 情绪安抚策略（技能驱动，来自 customer-reply-craft）
+    if (r.calming) {
+      const cc = h('div', { class: 'card' }, [h('div', { class: 'sec', text: '情绪安抚策略（技能驱动）' })]);
+      cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '情绪级别' }), h('span', { text: r.calming.level + ' / 5' })]));
+      cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '处理方式' }), h('span', { text: r.calming.action })]));
+      if (r.calming.forbidden && r.calming.forbidden !== '—') {
+        cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '禁止' }), h('span', { html: '<span style="color:#fca5a5">' + esc(r.calming.forbidden) + '</span>' })]));
+      }
+      body.appendChild(cc);
+    }
+
+    // 政策依据（这是"符合当地政策"的核心体现，扩展之前完全没展示）
+    const evs = (r.retrieval && r.retrieval.evidence) || [];
+    if (evs.length) {
+      const ce = h('div', { class: 'card' }, [h('div', { class: 'sec', text: '政策依据（' + evs.length + ' 条）' })]);
+      evs.forEach(function (e) {
+        ce.appendChild(h('div', { class: 'ev' }, [
+          h('div', { class: 'evt', text: e.title }),
+          h('div', { class: 'evs', text: e.snippet }),
+          h('div', { class: 'evm', text: e.doc_id + ' · ' + e.country + ' · 生效 ' + (e.effective_date || '-') + ' · 匹配 ' + e.score })
+        ]));
+      });
+      body.appendChild(ce);
+    } else if (r.retrieval) {
+      body.appendChild(h('div', { class: 'banner warn', text: '未检索到可依据的政策条目 —— 此时不应给出任何政策承诺，请人工核实。' }));
+    }
+
+    // 技能命中（触发词机制）
+    if (r.meta && r.meta.skills && r.meta.skills.length) {
+      const cs = h('div', { class: 'card' }, [h('div', { class: 'sec', text: '命中技能（' + r.meta.skills.length + '）' })]);
+      const sp = h('div');
+      r.meta.skills.forEach(function (n) { sp.appendChild(h('span', { class: 'pill t', text: n })); });
+      cs.appendChild(sp);
+      if (r.meta.composed_prompt_chars) {
+        cs.appendChild(h('div', { class: 'tiny', text: '已注入提示词 ' + r.meta.composed_prompt_chars + ' 字符' }));
+      }
+      body.appendChild(cs);
+    }
 
     // 候选话术
     const compMap = {};
