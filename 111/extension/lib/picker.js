@@ -8,7 +8,7 @@
      这样换平台、平台改版，都只需要重新点一次，不用改代码。
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 AIH.Picker = (function () {
   let active = false;

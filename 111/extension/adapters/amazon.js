@@ -5,7 +5,7 @@
    补法：把 Seller Central 消息页的真实 DOM 片段拿来，替换下面的 candidates。
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 AIH.AdapterAmazon = {
   id: 'amazon',

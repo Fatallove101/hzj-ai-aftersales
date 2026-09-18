@@ -5,7 +5,7 @@
      ② 命中不了 → 自动启发式识别（慢一点，但任何页面都能试）
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 /** 一条消息：{ side: 'buyer'|'seller'|'unknown', text: string, el } */
 AIH.makeMessage = function (el, side) {

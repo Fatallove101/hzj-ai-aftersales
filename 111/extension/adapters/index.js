@@ -6,7 +6,7 @@
    选择器失效时不影响使用：会自动退到启发式识别，用户也能用拾取器重学。
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 AIH.Adapters = (function () {
 

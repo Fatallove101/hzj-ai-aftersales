@@ -2,7 +2,7 @@
    lib/util.js  ·  通用小工具
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 AIH.$ = (sel, root) => (root || document).querySelector(sel);
 AIH.$$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));

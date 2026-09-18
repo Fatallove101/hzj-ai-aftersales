@@ -636,6 +636,19 @@
   }
 
   async function bootInner() {
+    // 模块完整性自检。
+    // 背景：content script 的所有文件共享同一全局作用域，任何文件顶层出现
+    // 重复的 const/let 声明都会让**该文件及其后所有文件**整体不执行。
+    // 那样 AIH 存在但 AIH.Adapters 是 undefined，后面会抛难以理解的 TypeError。
+    // 这里提前拦住，并把"已加载了哪些字段"打出来，一眼能看出是哪个文件没跑。
+    if (!AIH || !AIH.Adapters || typeof AIH.Adapters.detect !== 'function') {
+      throw new Error(
+        '模块未加载完整：AIH.Adapters 缺失。' +
+        '常见原因是某个 content script 文件解析失败（跨文件重复声明 const/let）。' +
+        ' 当前 AIH 已有字段：' + (AIH ? Object.keys(AIH).join(', ') || '(空)' : '(AIH 本身不存在)') +
+        '。可运行 tools/test-extension-load.js 定位。'
+      );
+    }
 
     state.adapter = AIH.Adapters.detect();
     // 平台默认值

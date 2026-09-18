@@ -16,7 +16,7 @@
    如果想让第①层也可靠，把真实 DOM 片段发我，我把这里换成准确选择器。
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 AIH.AdapterTikTok = {
   id: 'tiktok_shop',

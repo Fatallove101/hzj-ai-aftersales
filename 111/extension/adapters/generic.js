@@ -5,7 +5,7 @@
    这也是"手动注入到任意网站做测试"时用的适配器 —— 点扩展图标即可注入。
    ===================================================================== */
 
-const AIH = window.AIH || (window.AIH = {});
+var AIH = window.AIH || (window.AIH = {});
 
 AIH.AdapterGeneric = {
   id: 'generic',
