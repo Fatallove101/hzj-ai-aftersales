@@ -1,4 +1,4 @@
-/* =====================================================================
+﻿/* =====================================================================
    background.js  ·  MV3 Service Worker
    职责：唯一一个负责访问本地服务的角色。
 
@@ -25,8 +25,25 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 async function callServer(path, options) {
-  const res = await fetchWithTimeout(SERVER + path, options);
-  if (!res.ok) throw new Error('本地服务返回 HTTP ' + res.status);
+  const url = SERVER + path;
+  let res;
+  try {
+    res = await fetchWithTimeout(url, options);
+  } catch (e) {
+    // 请求根本发不出去（CORS / 私有网络 / 被安全软件拦 / 服务没起）
+    throw new Error('请求发不出去（' + url + '）：' + ((e && e.message) || e));
+  }
+  if (!res.ok) {
+    // ⚠️ 把响应体也带出来。只看状态码等于白看 ——
+    //    服务端的 400 响应体里会写明是哪个分支报的错。
+    let body = '';
+    try { body = (await res.text() || '').slice(0, 300); } catch (e) { body = '(读响应体失败)'; }
+    const hdrs = [];
+    try { res.headers.forEach((v, k) => hdrs.push(k + '=' + v)); } catch (e) {}
+    throw new Error('本地服务返回 HTTP ' + res.status + ' ' + res.statusText +
+                    '  ← ' + url + '\n响应体: ' + (body || '(空)') +
+                    '\n响应头: ' + (hdrs.join(' | ') || '(无)'));
+  }
   return await res.json();
 }
 

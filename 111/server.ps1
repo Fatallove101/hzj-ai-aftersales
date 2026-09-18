@@ -18,6 +18,18 @@ $TmpDir   = Join-Path $LogDir 'tmp'
 foreach ($d in @($LogDir, $TmpDir)) { if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null } }
 
 # ---------------------------------------------------------------------
+# 请求日志（排查"扩展连不上"这类问题用）
+# 把浏览器实际发来的请求原样记下来，否则只能靠猜。
+# ---------------------------------------------------------------------
+$script:ReqLog = Join-Path $LogDir 'requests.log'
+function Write-ReqLog {
+  param([string]$Line)
+  try {
+    [System.IO.File]::AppendAllText($script:ReqLog, $Line + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
+  } catch { }
+}
+
+# ---------------------------------------------------------------------
 # 加载引擎
 # ---------------------------------------------------------------------
 . (Join-Path $Root 'engine\rules.ps1')
@@ -234,7 +246,22 @@ function Handle-Request {
 
   $path = $Request.path
 
-  if ($Request.method -eq 'OPTIONS') { Send-Response -Stream $Stream -Status 200; return }
+  # ---- 请求日志：把浏览器实际发来的东西原样记下来 ----
+  try {
+    $hdr = @()
+    foreach ($k in $Request.headers.Keys) { $hdr += ($k + '=' + $Request.headers[$k]) }
+    $org = '(无)'
+    if ($Request.headers.ContainsKey('origin')) { $org = $Request.headers['origin'] }
+    Write-ReqLog -Line ((Get-Date -Format 'HH:mm:ss') + '  ' + $Request.method + ' ' + $path +
+                        '  bodyLen=' + $Request.body.Length + '  origin=' + $org)
+    Write-ReqLog -Line ('            headers: ' + ($hdr -join ' | '))
+  } catch { }
+
+  if ($Request.method -eq 'OPTIONS') {
+    Write-ReqLog -Line '            -> 预检 OPTIONS 已回 200'
+    Send-Response -Stream $Stream -Status 200
+    return
+  }
 
   # ---------- API ----------
   if ($path -eq '/api/health') {
