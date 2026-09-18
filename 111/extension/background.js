@@ -103,18 +103,43 @@ const CONTENT_FILES = [
   'content.js'
 ];
 
+/* 点图标时的短暂角标提示（注入失败时用户能看见，而不是静默无反应） */
+function flashBadge(text, color) {
+  try {
+    chrome.action.setBadgeText({ text: text });
+    chrome.action.setBadgeBackgroundColor({ color: color || '#ef4444' });
+    setTimeout(() => { try { chrome.action.setBadgeText({ text: '' }); } catch (e) {} }, 2500);
+  } catch (e) {}
+}
+
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab || !tab.id) return;
+  const url = tab.url || '';
+
+  // 浏览器内部页面（edge://, chrome://, 扩展商店等）从设计上就不允许注入
+  if (/^(edge|chrome|about|devtools|view-source):/i.test(url) ||
+      /^https:\/\/microsoftedge\.microsoft\.com\//i.test(url) ||
+      /^https:\/\/chromewebstore\.google\.com\//i.test(url)) {
+    flashBadge('✕');
+    console.warn('[售后助手] 浏览器内部页面无法注入，请在一个普通网页上点击。当前：' + url);
+    return;
+  }
+
   try {
+    // 已经注入过 → 切换显隐
     await chrome.tabs.sendMessage(tab.id, { type: 'toggle' });
   } catch (e) {
-    // 该页面没有内容脚本（例如不在白名单域名内），手动注入
+    // 没注入过 → 手动注入
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: CONTENT_FILES });
-      setTimeout(() => {
-        chrome.tabs.sendMessage(tab.id, { type: 'toggle' }).catch(() => {});
-      }, 200);
+
+      // ⚠️ 这里**绝对不要**再发一次 toggle。
+      // content.js 的 boot() 结束时会 setVisible(true)，侧边栏已经显示了；
+      // 再 toggle 一次会把它立刻藏回去 —— 表现就是"点了图标没反应"。
+      // （这是 v0.1~v0.8 一直存在的一个真 bug，2026-09 修复）
+      flashBadge('AI', '#22c55e');
     } catch (e2) {
+      flashBadge('!');
       console.warn('[售后助手] 注入失败：', e2);
     }
   }
