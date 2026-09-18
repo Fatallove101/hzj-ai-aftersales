@@ -494,11 +494,9 @@
   async function fb(action, cand, res) {
     if (!res) return;
     await msg('feedback', {
-      payload: {
-        trace_id: res.trace_id, action: action, style: cand.style,
-        candidate_id: cand.candidate_id, intent: res.analysis.primary_intent,
-        country: res.input.country, final_text: cand.text_zh || ''
-      }
+      trace_id: res.trace_id, action: action, style: cand.style,
+      candidate_id: cand.candidate_id, intent: res.analysis.primary_intent,
+      country: res.input.country, final_text: cand.text_zh || ''
     });
     toast('已记录：' + ({ accept: '采纳', ignore: '忽略', edit: '修改采纳' }[action] || action));
   }
@@ -531,9 +529,7 @@
 
     state.busy = true;
     render();
-    const res = await msg('analyze', {
-      payload: { text: text, country: state.country, platform: state.platform, category: 'unknown' }
-    });
+    const res = await msg('analyze', { text: text, country: state.country, platform: state.platform, category: 'unknown' });
     state.busy = false;
 
     if (!res || !res.ok) {
@@ -639,7 +635,7 @@
     AIH.Picker.start(it.mode, async (res) => {
       if (!res || !res.ok) { toast('已取消'); render(); return; }
       state.overrides[it.key] = res.selector;
-      await msg('config', { payload: { host: HOST, save: { [it.key]: res.selector } } });
+      await msg('config', { host: HOST, save: { [it.key]: res.selector } });
       state.selectors = AIH.Adapters.resolveSelectors(state.adapter, state.overrides);
       toast('已记住：匹配 ' + res.count + ' 个元素');
       state.lastText = '';
@@ -649,7 +645,7 @@
 
   async function clearOverrides() {
     state.overrides = {};
-    await msg('config', { payload: { host: HOST, save: { messageList: '', messageItem: '', inputBox: '' } } });
+    await msg('config', { host: HOST, save: { messageList: '', messageItem: '', inputBox: '' } });
     state.selectors = AIH.Adapters.resolveSelectors(state.adapter, {});
     toast('已清除');
     render();
@@ -703,7 +699,7 @@
     if (state.adapter.id === 'amazon') state.platform = 'amazon';
 
     // 读取用户已学的选择器
-    const cfg = await msg('config', { payload: { host: HOST } });
+    const cfg = await msg('config', { host: HOST });
     if (cfg && cfg.ok && cfg.data) state.overrides = cfg.data;
     state.selectors = AIH.Adapters.resolveSelectors(state.adapter, state.overrides);
 
