@@ -121,7 +121,6 @@ const mainView = `
           <button class="srcbtn">读屏</button>
         </div>
         <div class="row" style="margin-top:6px">
-          <button class="btn pri sm">分析</button>
           <button class="btn sm">▶ 自动监听</button>
           <button class="btn sm">↻</button>
         </div>
@@ -144,7 +143,7 @@ const mainView = `
   </div>
 
   <div class="pane" id="paneCands">
-    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span></div>
+    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span><button class="btn sm pri">换一批</button></div>
     <div class="pane-bd">
       <div class="cand rec">
         <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>

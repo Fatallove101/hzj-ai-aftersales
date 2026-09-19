@@ -1,4 +1,4 @@
-/* =====================================================================
+﻿/* =====================================================================
    content.js  ·  侧边栏主体
    在客服后台右侧注入一个面板：读取对话 → 生成话术 → 一键插入输入框
    用 Shadow DOM 隔离样式，避免与宿主页面互相污染。
@@ -26,6 +26,9 @@
     view: 'main',          // main | setup | windows | picker
     viewStack: [],
     src: 'dom',
+    pickWindow: false,      // 是否处于「选窗口」模式（在①号框内显示）
+    pickWindows: [],
+    pickLoading: false,
     folds: {},
     ocrInfo: null,
     uiMode: 'dock',        // dock=挤开页面  float=悬浮可拖动
@@ -621,6 +624,7 @@
   }
 
   async function useSource(id) {
+    state.pickWindow = false;      // 切到别的读法时关掉窗口选择
     state.src = id;
     if (id === 'dom') { render(); analyze(); return; }
 
@@ -651,30 +655,27 @@
     await runAnalyze(t, '读屏 OCR · ' + (ocr.language_used || ''));
   }
 
+  /* 选窗口：**在①「客户对话」框内部显示**，不整屏接管。
+     之前是 body.innerHTML = '' 把整块面板换掉 —— 结果上面的读取源按钮排
+     跟着消失，用户想换个读法都没法点（收到反馈）。
+     现在只把①号框的内容换成窗口列表，标题栏（含读取源）保留不动。 */
   async function showWindowPicker() {
-    state.view = 'windows'; state.viewStack = ['main']; syncBackBtn();
-    state.busy = true; render();
+    state.pickWindow = true;
+    state.pickWindows = [];
+    state.pickLoading = true;
+    state.lastError = '';
+    render();
     const res = await msg('windows');
-    state.busy = false;
+    state.pickLoading = false;
     const wins = (res && res.ok && res.data && res.data.windows) || [];
-    body.innerHTML = '';
-    body.appendChild(h('div', { class: 'banner warn', text: '选择一个要读取的窗口。列表里是当前所有可见窗口。' }));
-    if (!wins.length) {
-      body.appendChild(h('div', { class: 'empty', text: '没取到窗口列表' }));
-      return;
-    }
-    const box = h('div', { class: 'winpick' });
-    wins.forEach(function (w) {
-      const row = h('div', { class: 'winrow' });
-      row.appendChild(h('div', { class: 'wt', text: w.title || '(无标题)' }));
-      row.appendChild(h('div', { class: 'wp', text: (w.process || '') + '  hwnd=' + w.hwnd }));
-      row.onclick = function () { readWindow(w); };
-      box.appendChild(row);
-    });
-    body.appendChild(box);
+    state.pickWindows = wins;
+    if (!wins.length) state.lastError = '没取到窗口列表：' + ((res && res.error) || '未知原因');
+    render();
   }
 
   async function readWindow(w) {
+    state.pickWindow = false;      // 选完就退出选择态
+    state.pickWindows = [];
     state.busy = true; state.lastError = ''; render();
     const res = await msg('uia', { hwnd: w.hwnd, scope: 'window' });   // 注意：msg() 已包一层，这里不能再写 payload
     state.busy = false;
@@ -708,6 +709,13 @@
     chat.hd.appendChild(ctl);
     // ② 候选话术（最大）
     const cands = mk('paneCands', '候选话术', h('span', { class: 'pn', id: 'candCount', text: '' }));
+    // 「换一批」：重新读取当前对话并刷新②号框的候选话术。
+    // 放在候选话术标题旁而不是上面操作条里 —— 它作用的正是这个框的内容，
+    // 按钮和它影响的东西应该挨着（原来叫「分析」，用户反馈看不懂）。
+    cands.hd.appendChild(h('button', {
+      class: 'btn sm pri', text: '换一批', title: '重新读取当前对话，刷新下方候选话术',
+      onclick: () => analyze()
+    }));
     // ③ 详情：包住所有折叠卡片
     const detail = mk('paneDetail', '详情', h('span', { class: 'pn', text: '点标题展开' }));
 
@@ -721,6 +729,31 @@
 
   function buildChatPane(bd, tr, note) {
     bd.innerHTML = '';
+
+    // 选窗口模式：把①号框内容换成窗口列表，**标题栏不动**（读取源按钮仍在）。
+    // 之前是整屏替换 body，导致上面的读取源按钮排消失、用户换不了读法。
+    if (state.pickWindow) {
+      bd.appendChild(h('div', { class: 'sec', text: '选择要读取的窗口' }));
+      if (state.pickLoading) { bd.appendChild(h('div', { class: 'tiny', text: '正在获取窗口列表…' })); return; }
+      if (!state.pickWindows.length) {
+        bd.appendChild(h('div', { class: 'empty', text: '没取到窗口列表' }));
+      } else {
+        const wp = h('div', { class: 'winpick' });
+        state.pickWindows.forEach(function (w) {
+          const row = h('div', { class: 'winrow' });
+          row.appendChild(h('div', { class: 'wt', text: w.title || '(无标题)' }));
+          row.appendChild(h('div', { class: 'wp', text: (w.process || '') + '  hwnd=' + w.hwnd }));
+          row.onclick = function () { readWindow(w); };
+          wp.appendChild(row);
+        });
+        bd.appendChild(wp);
+      }
+      const cancel = h('button', { class: 'btn sm', text: '取消', style: 'margin-top:8px' });
+      cancel.onclick = function () { state.pickWindow = false; state.pickWindows = []; render(); };
+      bd.appendChild(cancel);
+      return;
+    }
+
     if (note) bd.appendChild(h('div', { class: 'banner warn', text: 'ℹ ' + note }));
     const msgs = state.messages || [];
 
@@ -1406,11 +1439,9 @@
     if (!ctl) return;                             // 主视图还没渲染出来
     ctl.innerHTML = '';
 
-    ctl.appendChild(renderSourceBar());
+    ctl.appendChild(renderSourceBar());   // 读取源按钮排（分析按钮已移到候选话术标题旁）
 
     const row1 = h('div', { class: 'row', style: 'margin-top:6px' });
-    row1.appendChild(h('button', { class: 'btn pri sm', text: '分析',
-      title: '读取当前对话并刷新下方候选话术', onclick: analyze }));
     row1.appendChild(state.watching
       ? h('button', { class: 'btn dan sm', text: '⏹ 停止', onclick: stopWatch })
       : h('button', { class: 'btn sm', text: '▶ 自动监听', onclick: startWatch }));

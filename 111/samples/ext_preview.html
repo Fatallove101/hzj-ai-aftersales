@@ -108,11 +108,11 @@
 .pane-bd::-webkit-scrollbar{width:8px}
 .pane-bd::-webkit-scrollbar-thumb{background:#cfd8e8;border-radius:4px}
 /* ① 客户对话：中等高度 */
-#paneChat{flex:0 0 auto;height:212px}
+#paneChat{flex:0 0 auto;height:246px}
 /* ② 候选话术：占剩下的全部（最大） */
 #paneCands{flex:1 1 auto;min-height:150px}
 /* ③ 详情：包住那些下拉栏 */
-#paneDetail{flex:0 0 auto;height:158px}
+#paneDetail{flex:0 0 auto;height:152px}
 .pane-bd .card:last-child,.pane-bd .fold:last-child{margin-bottom:0}
 /* 对话气泡（客户对话框内） */
 .chatmsg{margin-bottom:9px}
@@ -259,7 +259,6 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
           <button class="srcbtn">读屏</button>
         </div>
         <div class="row" style="margin-top:6px">
-          <button class="btn pri sm">分析</button>
           <button class="btn sm">▶ 自动监听</button>
           <button class="btn sm">↻</button>
         </div>
@@ -282,7 +281,7 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   </div>
 
   <div class="pane" id="paneCands">
-    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span></div>
+    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span><button class="btn sm pri">换一批</button></div>
     <div class="pane-bd">
       <div class="cand rec">
         <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
@@ -359,7 +358,6 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
           <button class="srcbtn">读屏</button>
         </div>
         <div class="row" style="margin-top:6px">
-          <button class="btn pri sm">分析</button>
           <button class="btn sm">▶ 自动监听</button>
           <button class="btn sm">↻</button>
         </div>
@@ -382,7 +380,7 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   </div>
 
   <div class="pane" id="paneCands">
-    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span></div>
+    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span><button class="btn sm pri">换一批</button></div>
     <div class="pane-bd">
       <div class="cand rec">
         <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
