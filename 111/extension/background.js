@@ -130,6 +130,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        case 'retranslate': {
+          // 回译：中文（坐席改过的）→ 客户语言，用于"修改后采纳"同步外文
+          const data = await callServer('/api/retranslate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(msg.payload || {})
+          });
+          sendResponse({ ok: true, data });
+          break;
+        }
+
         case 'analyze': {
           const data = await callServer('/api/analyze', {
             method: 'POST',

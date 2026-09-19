@@ -269,6 +269,17 @@ try {
     T.render();
     T.renderFooterButtons();
 
+    // 再跑一遍「修改后采纳」编辑器视图。
+    // 为什么必须覆盖：LANG_LABEL 未定义就是这么漏出去的 ——
+    // 只测主视图的话，编辑器里的引用错误完全测不到。
+    T.state.editCand = T.state.lastResult.candidates[0];
+    T.state.editRes = T.state.lastResult;
+    T.state.editZh = '测试中文';
+    T.state.editTar = 'Test English';
+    T.state.view = 'edit';
+    T.render();
+    T.state.view = 'main';
+
     const texts = collectText(context.document.documentElement).join('\n');
     const bad = [];
     if (texts.includes('渲染失败')) bad.push('renderInner 抛异常（面板出现"渲染失败"横幅）');
@@ -283,7 +294,7 @@ try {
     } else {
       // 再断言三个框真的挂上去了。
       // 只查"有没有报错"抓不到"忘把框挂进页面"这类漏挂载（不抛异常，只是没渲染）。
-      const need = ['客户对话', '候选话术', '详情'];
+      const need = ['客户对话', '候选话术', '详情', '发给客户'];   // 发给客户 = 编辑器视图渲染成功的标志
       const miss = need.filter((x) => !texts.includes(x));
       if (miss.length) {
         console.log('  ✕ 三个框没挂全，缺少：' + miss.join('、'));

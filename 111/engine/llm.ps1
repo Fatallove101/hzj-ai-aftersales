@@ -400,6 +400,34 @@ function Invoke-ChatCompletion {
   return $content
 }
 
+# ---------------------------------------------------------------------
+# 组装翻译 Agent 的系统提示词（把 {{变量}} 真正展开）
+#
+# 为什么要这个：Expand-AgentPrompt 早就写好了，但管线里从来没用过 ——
+# 直接把带 {{raw_text}} / {{direction}} 的原文丢给模型。
+# 模型能猜出大意，但**方向**（target2zh 还是 zh2target）猜错就会把
+# 中文再翻成中文。回译功能必须靠它。
+# ---------------------------------------------------------------------
+function Build-TranslatePrompt {
+  param(
+    [Parameter(Mandatory)][ValidateSet('target2zh','zh2target')][string]$Direction,
+    [Parameter(Mandatory)][string]$RawText,
+    [string]$SourceLang = 'auto',
+    [string]$TargetLang = 'zh',
+    [string]$GlossaryJson = '[]',
+    [string]$ContextTurns = ''
+  )
+  $p = Get-AgentPrompt -Name 'translate'
+  if ([string]::IsNullOrWhiteSpace($p)) { return '' }
+  return (Expand-AgentPrompt -Prompt $p -Vars @{
+    direction     = $Direction
+    raw_text      = $RawText
+    source_lang   = $SourceLang
+    target_lang   = $TargetLang
+    glossary_json = $(if ([string]::IsNullOrWhiteSpace($GlossaryJson)) { '[]' } else { $GlossaryJson })
+    context_turns = $ContextTurns
+  })
+}
 function Get-ModelStatus {
   $cfg = Get-ModelConfig
   $meta = Get-ApiKeyMeta

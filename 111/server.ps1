@@ -598,6 +598,35 @@ function Handle-Request {
     return
   }
 
+  # 回译：中文（可能被坐席改过）→ 客户语言。
+  # 「修改后采纳」用它：坐席改中文，外文自动同步，保证两边语义一致。
+  if ($path -eq '/api/retranslate' -and $Request.method -eq 'POST') {
+    $b = Get-BodyJson -Request $Request
+    if ($null -eq $b) { Send-Json -Stream $Stream -Object @{ ok=$false; error='请求体不是合法 JSON' } -Status 400; return }
+    $zh = [string]$b.text_zh
+    if ([string]::IsNullOrWhiteSpace($zh)) { Send-Json -Stream $Stream -Object @{ ok=$false; error='text_zh 不能为空' } -Status 400; return }
+    $tgt = 'en'
+    if ($b.PSObject.Properties.Name -contains 'target' -and $b.target) { $tgt = [string]$b.target }
+    try {
+      $r = Invoke-LLM -Task 'translate' -Params @{
+        system_prompt = (Build-TranslatePrompt -Direction 'zh2target' -RawText $zh -SourceLang 'zh' -TargetLang $tgt -GlossaryJson '[]')
+        text          = $zh
+        temperature   = 0.1
+      }
+      $out = ''
+      if ($r -and $r.PSObject.Properties.Name -contains 'translated_text') { $out = [string]$r.translated_text }
+      elseif ($r -is [string]) { $out = $r }
+      if ([string]::IsNullOrWhiteSpace($out)) {
+        Send-Json -Stream $Stream -Object @{ ok=$false; error='回译失败：模型未返回译文（可能未接入模型）'; degraded=$true }
+        return
+      }
+      Send-Json -Stream $Stream -Object @{ ok=$true; text_tar=$out.Trim(); target=$tgt; mode=(Get-ModelStatus).mode }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok=$false; error=$_.Exception.Message; degraded=$true } -Status 500
+    }
+    return
+  }
+
   if ($path -eq '/api/feedback' -and $Request.method -eq 'POST') {
     $b = Get-BodyJson -Request $Request
         # （字段在下方一并构造，这里不再单独建对象）

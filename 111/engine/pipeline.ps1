@@ -509,8 +509,14 @@ function Invoke-Pipeline {
   # Invoke-LLM 在 provider=local 或未配密钥时返回 $null，链路自动回退，不会断
   $modelTranslation = $null
   if ($lang -ne 'zh') {
+    # 用 Build-TranslatePrompt 真正展开 {{direction}} 等变量。
+    # 之前把带占位符的原文直接发给模型，方向靠模型猜 —— 会猜错（中文被再翻成中文）。
+    $glossaryJson = '[]'
+    if ($glossaryHits -and @($glossaryHits).Count -gt 0) {
+      try { $glossaryJson = (ConvertTo-Json -InputObject @($glossaryHits) -Compress -Depth 4) } catch { $glossaryJson = '[]' }
+    }
     $modelTranslation = Invoke-LLM -Task 'translate' -Params @{
-      system_prompt = (Get-AgentPrompt -Name 'translate')
+      system_prompt = (Build-TranslatePrompt -Direction 'target2zh' -RawText $Text -SourceLang $lang -TargetLang 'zh' -GlossaryJson $glossaryJson)
       text          = $Text
       temperature   = 0.1
     }

@@ -29,6 +29,13 @@
     pickWindow: false,      // 是否处于「选窗口」模式（在①号框内显示）
     pickWindows: [],
     pickLoading: false,
+    manualText: '',         // 手动输入框里的内容
+    editCand: null,         // 正在编辑的候选
+    editRes: null,
+    editZh: '',             // 编辑中的中文
+    editTar: '',            // 同步后的外文
+    editSyncing: false,
+    editMsg: '',
     folds: {},
     ocrInfo: null,
     uiMode: 'dock',        // dock=挤开页面  float=悬浮可拖动
@@ -616,7 +623,8 @@
     { id: 'dom',  label: '页面',   title: '直读页面上的对话元素（最准，推荐）' },
     { id: 'clip', label: '剪贴板', title: '读系统剪贴板 —— 在任何软件里选中文字按 Ctrl+C，再点这里' },
     { id: 'win',  label: '窗口',   title: '直读本机某个窗口的文字（桌面客户端用，不走 OCR 无误差）' },
-    { id: 'ocr',  label: '读屏',   title: '截当前标签页做 OCR（DOM 读不到时用）' }
+    { id: 'ocr',  label: '读屏',   title: '截当前标签页做 OCR（DOM 读不到时用）' },
+    { id: 'manual', label: '手动', title: '自己粘贴或输入对话 —— 任何来源都能用' },
   ];
 
   function renderSourceBar() {
@@ -640,6 +648,7 @@
 
     if (id === 'clip') { await readClipboard(); return; }
     if (id === 'ocr')  { await readScreen(); return; }
+    if (id === 'manual') { render(); return; }   // 手动：只在①号框里显示输入框
     if (id === 'win')  { await showWindowPicker(); return; }
   }
 
@@ -735,6 +744,8 @@
   /* 客户对话内容：分说话人气泡 + 中文对照
      诚实说明：本地模式没有整句翻译能力，只能给术语级对照；
      接入千帆后 translation.translated_text 会有整段中文译文。 */
+  // 语言显示名（编辑器标题栏用）
+  const LANG_LABEL = { en: 'English', es: 'Español', zh: '中文' };
   const SPEAKER_ZH = { buyer: '客户', bot: 'AI客服', human: '人工客服' };
 
   function buildChatPane(bd, tr, note) {
@@ -764,6 +775,23 @@
       return;
     }
 
+    // 手动输入：自己粘贴对话。任何来源（第三方系统、截图里抄的、口头转述）都能用。
+    if (state.src === 'manual') {
+      const ta = h('textarea', { class: 'rawtext', style: 'min-height:118px' });
+      ta.placeholder = '把客户对话粘贴到这里（可多行）。中文走本地分析，外文会先翻译再分析。';
+      ta.value = state.manualText || '';
+      ta.oninput = function () { state.manualText = ta.value; };
+      bd.appendChild(ta);
+      const bGo = h('button', { class: 'btn pri sm', text: '用这段对话生成话术', style: 'margin-top:8px' });
+      bGo.onclick = function () {
+        const t = (state.manualText || '').trim();
+        if (!t) { state.lastError = '请先粘贴或输入对话内容'; render(); return; }
+        runAnalyze(t, '手动输入');
+      };
+      bd.appendChild(bGo);
+      bd.appendChild(h('div', { class: 'tiny', style: 'margin-top:7px', text: '生成后结果会出现在下面「候选话术」框里。' }));
+      return;
+    }
     if (note) bd.appendChild(h('div', { class: 'banner warn', text: 'ℹ ' + note }));
     const msgs = state.messages || [];
 
@@ -983,6 +1011,7 @@
     // 模型未配置（或用户主动打开设置）→ 进配置界面。
     // 这就是传统"登录界面"的替代：没有账号密码，只有自己的 API Key。
     if (state.view === 'setup') { renderSetup(); return; }
+    if (state.view === 'edit') { renderEdit(); return; }
 
     // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
@@ -1202,6 +1231,7 @@
         }));
         cf.appendChild(h('button', { class: 'btn sm', text: '📋 复制', onclick: () => copy(target) }));
         cf.appendChild(h('button', { class: 'btn sm', text: '✓ 采纳', onclick: () => fb('accept', c, r) }));
+        cf.appendChild(h('button', { class: 'btn sm', text: '✎ 修改后采纳', onclick: () => openEditor(c, r) }));
       } else {
         cf.appendChild(h('span', { class: 'tag rj', text: '违反合规规则，不可发送' }));
       }
@@ -1254,16 +1284,119 @@
     else toast('插入失败，请手动粘贴', true);
   }
 
-  async function fb(action, cand, res) {
+  async function fb(action, cand, res, finalText) {
     if (!res) return;
     await msg('feedback', {
       trace_id: res.trace_id, action: action, style: cand.style,
       candidate_id: cand.candidate_id, intent: res.analysis.primary_intent,
-      country: res.input.country, final_text: cand.text_zh || ''
+      country: res.input.country,
+      // 建议原文 + 最终发出内容都记下来 —— 服务端据此算「人工修改幅度」
+      suggested_text: cand.text_zh || '',
+      final_text: finalText != null ? finalText : (cand.text_zh || '')
     });
     toast('已记录：' + ({ accept: '采纳', ignore: '忽略', edit: '修改采纳' }[action] || action));
   }
 
+  /* ---------------- 修改后采纳 ----------------
+     比网页版多做一步：改中文，外文自动同步。
+
+     为什么必须同步：中文是给内部看的、外文才是发给客户的。
+     只改中文不同步外文，就会出现「内部记录一套、实际发出去另一套」——
+     这在合规场景里是致命的（记录说我承诺了 A，客户收到的是 B）。
+     同步靠 /api/retranslate 回译；回译失败会明确提示，不会假装成功。 */
+  function openEditor(cand, res) {
+    state.editCand = cand;
+    state.editRes = res;
+    state.editZh = cand.text_zh || '';
+    state.editTar = pickText(cand) || '';
+    state.editMsg = '';
+    state.editSyncing = false;
+    pushView('edit');
+  }
+
+  let syncTimer = null;
+
+  function scheduleSync() {
+    if (syncTimer) clearTimeout(syncTimer);
+    state.editSyncing = true;
+    state.editMsg = '正在同步外文…';
+    updateSyncHint();
+    // 停输入 1 秒再回译，避免每敲一个字就打一次模型
+    syncTimer = setTimeout(doSync, 1000);
+  }
+
+  async function doSync() {
+    const zh = (state.editZh || '').trim();
+    if (!zh) { state.editSyncing = false; state.editMsg = ''; updateSyncHint(); return; }
+    const res = await msg('retranslate', { text_zh: zh, target: state.targetLang });
+    state.editSyncing = false;
+    if (res && res.ok && res.data && res.data.text_tar) {
+      state.editTar = res.data.text_tar;
+      state.editMsg = '✓ 外文已同步';
+      const ta = shadow.querySelector('#editTar');
+      if (ta) ta.value = state.editTar;
+    } else {
+      state.editMsg = '⚠ 外文未同步：' +
+        ((res && res.data && res.data.error) || (res && res.error) || '模型未接入') +
+        ' —— 插入前请自己核对';
+    }
+    updateSyncHint();
+  }
+
+  function updateSyncHint() {
+    const hEl = shadow.querySelector('#editSyncHint');
+    if (!hEl) return;
+    hEl.textContent = state.editMsg || '';
+    hEl.style.color = state.editMsg.indexOf('⚠') === 0 ? 'var(--danger)' : 'var(--ok)';
+  }
+
+  function renderEdit() {
+    body.innerHTML = '';
+    const c = state.editCand;
+    if (!c) { body.appendChild(h('div', { class: 'empty', text: '没有要编辑的话术' })); return; }
+
+    body.appendChild(h('div', { class: 'banner ok', html:
+      '<b>修改后采纳</b><br>改下面的<b>中文</b>，上面的外文会自动重新翻译；确认后直接插入输入框。' }));
+
+    body.appendChild(h('div', { class: 'sec', text: '发给客户 · ' + (LANG_LABEL[state.targetLang] || state.targetLang) }));
+    const tar = h('textarea', { class: 'rawtext', id: 'editTar', style: 'min-height:118px' });
+    tar.value = state.editTar;
+    tar.oninput = function () { state.editTar = tar.value; };
+    body.appendChild(tar);
+    body.appendChild(h('div', { class: 'tiny', id: 'editSyncHint', style: 'margin-top:5px' }));
+
+    body.appendChild(h('div', { class: 'sec', style: 'margin-top:12px', text: '中文（改这里 · 自动触发回译）' }));
+    const zh = h('textarea', { class: 'rawtext', id: 'editZh', style: 'min-height:130px' });
+    zh.value = state.editZh;
+    zh.oninput = function () { state.editZh = zh.value; scheduleSync(); };
+    body.appendChild(zh);
+
+    const row = h('div', { class: 'row', style: 'margin-top:12px' });
+    const bIns = h('button', { class: 'btn pri', text: '⤵ 插入输入框（用外文）' });
+    bIns.onclick = function () {
+      const t = (state.editTar || '').trim();
+      if (!t) { toast('外文是空的，先等同步或自己填', false); return; }
+      insertToInput(t);
+      fb('edit', c, state.editRes, state.editZh);
+    };
+    row.appendChild(bIns);
+
+    const bCopy = h('button', { class: 'btn', text: '📋 复制外文' });
+    bCopy.onclick = function () { copy(state.editTar || ''); };
+    row.appendChild(bCopy);
+
+    const bSync = h('button', { class: 'btn', text: '↻ 重新同步' });
+    bSync.onclick = function () { scheduleSync(); };
+    row.appendChild(bSync);
+
+    const bDone = h('button', { class: 'btn', text: '仅记录采纳' });
+    bDone.onclick = function () { fb('edit', c, state.editRes, state.editZh); popView(); };
+    row.appendChild(bDone);
+    body.appendChild(row);
+
+    body.appendChild(h('div', { class: 'tiny', style: 'margin-top:8px', html:
+      '原始建议：<br>' + esc(c.text_zh || '') }));
+  }
   /* ---------------- 读取与分析 ---------------- */
   function readOnce() {
     const r = AIH.extractConversation({ selectors: state.selectors });
