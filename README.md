@@ -30,8 +30,8 @@
 | 目录 | 是什么 | 入口 |
 |---|---|---|
 | `agent设计/` | 完整设计方案：1 主控 + 6 子 Agent 架构、7 份系统提示词、JSON Schema、知识库/数据库/合规规则库设计、千帆搭建手册、评测运营方案 | [`agent设计/00-交付总览.md`](agent设计/00-交付总览.md) |
-| `111/` | **可运行的本地演示**（后端 + 网页版） | [`111/README.md`](111/README.md) |
-| `111/extension/` | **浏览器扩展**：在客服后台右侧挂侧边栏，读对话 → 出话术 → 一键插入输入框 | [`111/extension/README.md`](111/extension/README.md) |
+| `hzj-ai-aftersales/` | **可运行的本地演示**（后端 + 网页版） | [`hzj-ai-aftersales/README.md`](hzj-ai-aftersales/README.md) |
+| `hzj-ai-aftersales/extension/` | **浏览器扩展**：在客服后台右侧挂侧边栏，读对话 → 出话术 → 一键插入输入框 | [`hzj-ai-aftersales/extension/README.md`](hzj-ai-aftersales/extension/README.md) |
 | `222/` | 早期参考素材 | — |
 
 原始需求文档：`汉正街跨境售后AI话术助手——基于百度千帆的多语言客服能力提升系统项目申报书(2).docx`
@@ -40,7 +40,7 @@
 
 ## 30 秒跑起来
 
-**双击 `111\启动.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>
+**双击 `hzj-ai-aftersales\启动.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>
 
 **零依赖**：不需要 Python、Node，也不需要管理员权限。
 只用系统自带的 PowerShell 5.1 + Windows 内置 OCR。
@@ -54,7 +54,7 @@
 
 1. 打开 `edge://extensions/`（Chrome 用 `chrome://extensions/`）
 2. 打开「**开发人员模式**」
-3. 点「**加载解压缩的扩展**」，选 `111\extension` 目录
+3. 点「**加载解压缩的扩展**」，选 `hzj-ai-aftersales\extension` 目录
 4. 打开客服后台页面，右上角出现 **AI 悬浮球**，点开即用
 
 **首次使用要校准一次**（30 秒）：
@@ -101,7 +101,7 @@
 - **日志脱敏**：请求体落盘前过 `Protect-LogBody` —— 密钥类字段整值抹掉、
   正文类字段只留长度不留内容、任何 `bce-v3/` 串一律打码
   > ⚠️ **v0.33.0 之前这条是假的**：`Write-ReqLog` 会把原始请求体整行写进
-  > `111\logs\requests.log`，保存密钥那次请求把**密钥明文**落了盘，
+  > `hzj-ai-aftersales\logs\requests.log`，保存密钥那次请求把**密钥明文**落了盘，
   > 分析请求还把**客户对话原文**落了盘（实测 118 行）。
   > 已修 + 已删除存量日志。详见 CHANGELOG 或 commit `v0.33.0`。
 
@@ -265,7 +265,7 @@ CSS 直接从 `extension/content.js` 提取（真实样式，非手抄），
 - **合规规则库是 `seed` 数据，标注"待法务确认"** —— 这是**工程数据，不是法律意见**。
   上线前必须经法务逐条核对。同理 `policy_index.csv`。
 - **千帆知识库路径尚未对接真实接口** —— 契约已定义（见
-  [`111/docs/接入千帆知识库.md`](111/docs/接入千帆知识库.md)），
+  [`hzj-ai-aftersales/docs/接入千帆知识库.md`](hzj-ai-aftersales/docs/接入千帆知识库.md)），
   字段名不同只需改 `engine/knowledge.ps1` 的映射。当前会**显式降级到本地 CSV** 并说明原因。
 - **TikTok Shop 的选择器未在真实后台验证**（没有账号），需实机校准一次。
 - **本地模式的翻译只有术语级对照**，整句译文需要模型。
@@ -288,7 +288,7 @@ CSS 直接从 `extension/content.js` 提取（真实样式，非手抄），
 ## 目录速查
 
 ```
-111/
+hzj-ai-aftersales/
 ├─ server.ps1              # 本地 HTTP 服务（TcpListener，端口 8799）
 ├─ 启动.bat                # 双击启动
 ├─ engine/                 # 后端逻辑

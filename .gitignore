@@ -1,6 +1,6 @@
 # ===== 凭据类：绝对不允许入库 =====
 # API Key 用 Windows DPAPI 加密后存在 %APPDATA%\hzj-agent\ 下；
-# 若该位置不可写，会退回到 111/.secrets/（同样是 DPAPI 密文，且被下面这行挡住）
+# 若该位置不可写，会退回到 hzj-ai-aftersales/.secrets/（同样是 DPAPI 密文，且被下面这行挡住）
 credentials*.dat
 credential.dat
 .secrets/
@@ -13,10 +13,10 @@ config.local.json
 *.secret
 
 # ===== 演示运行产物 =====
-111/logs/qa_logs.jsonl
-111/logs/tmp/
-111/logs/*.log
-111/samples/output_*.png
+hzj-ai-aftersales/logs/qa_logs.jsonl
+hzj-ai-aftersales/logs/tmp/
+hzj-ai-aftersales/logs/*.log
+hzj-ai-aftersales/samples/output_*.png
 
 # ===== 编辑器 / 系统 =====
 .vscode/
@@ -28,7 +28,7 @@ desktop.ini
 # ===== 临时文件 =====
 *.tmp
 *.bak
-111/logs/
-111/samples/_vframe/
+hzj-ai-aftersales/logs/
+hzj-ai-aftersales/samples/_vframe/
 # 用户自定义规则（本地数据，不该进仓库）
-111/data/custom_rules.jsonl
+hzj-ai-aftersales/data/custom_rules.jsonl
