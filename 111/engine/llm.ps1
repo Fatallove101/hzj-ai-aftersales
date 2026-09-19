@@ -17,6 +17,12 @@
 Add-Type -AssemblyName System.Security -ErrorAction SilentlyContinue
 
 $script:LocalConfigPath = $null   # 由 Initialize-Llm 设置
+
+# 强制走本地规则引擎（不真调模型）。
+# 为什么需要：tools\selfcheck.ps1 会跑完整管线（7 个行为用例），
+# 一旦配了模型就会真发 7 次请求 —— 实测 227 秒、花钱、且输出不确定。
+# **测试必须确定性、免费、快**，所以自检默认打开它。
+$script:ForceLocal = $false
 $script:LlmRoot  = $null          # 由 Initialize-Llm 设置
 $script:CredFile = $null          # 由 Resolve-CredFile 解析
 $script:CredResolved = $false
@@ -134,12 +140,23 @@ function Get-ApiKeyMeta {
 # ---------------------------------------------------------------------
 # 模型配置（非密钥部分放在项目内 config.local.json，已被 .gitignore 忽略）
 # ---------------------------------------------------------------------
+# 打开/关闭「强制本地」。自检脚本用，正常服务不碰它。
+function Set-LlmForceLocal {
+  param([bool]$On = $true)
+  $script:ForceLocal = $On
+}
 function Get-ModelConfig {
   $default = [pscustomobject]@{
     provider = 'local'                 # local | qianfan
     endpoint = ''
     model    = ''
     timeout  = 30
+  }
+  if ($script:ForceLocal) {
+    $default.provider = 'local'
+    $default.endpoint = ''
+    $default.model    = ''
+    return $default
   }
   if ([string]::IsNullOrWhiteSpace($script:LocalConfigPath)) { return $default }
   if (-not (Test-Path $script:LocalConfigPath)) { return $default }

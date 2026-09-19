@@ -19,6 +19,12 @@ $DataDir = Join-Path $Root 'data'
 [void](Initialize-KnowledgeBase -DataDir $DataDir)
 [void](Initialize-Llm -Root $Root)
 
+# 自检**默认强制走本地规则引擎**，不真调模型。
+# 理由：第 2 部分用 Invoke-Pipeline 跑 7 个完整行为用例 ——
+# 配了模型就会真发 7 次请求（实测 227 秒、花钱、输出还不确定）。
+# 测试要的是确定性、免费、快。想连模型一起验，加 -UseModel。
+if (-not $UseModel) { Set-LlmForceLocal -On $true }
+
 $fail = 0
 
 # ---------------------------------------------------------------------
