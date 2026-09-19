@@ -70,13 +70,65 @@ async function callServer(path, options) {
   return await res.json();
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     try {
       switch (msg && msg.type) {
         case 'health':
           sendResponse({ ok: true, data: await callServer('/api/health') });
           break;
+
+        // ---------- 四种读取源：全部转发给本地服务，扩展这边不重复实现 ----------
+        // 服务端 /api/windows /api/uia /api/clipboard /api/ocr 早就写好了，
+        // 扩展只是把它们接到界面上。
+
+        case 'windows': {
+          // 列出本机可见窗口（读桌面客户端用，如千牛/微信/WhatsApp Desktop）
+          const data = await callServer('/api/windows');
+          sendResponse({ ok: true, data });
+          break;
+        }
+
+        case 'uia': {
+          // 直读指定窗口的文字（不走 OCR，无识别误差）
+          const data = await callServer('/api/uia', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(msg.payload || {})
+          });
+          sendResponse({ ok: true, data });
+          break;
+        }
+
+        case 'clipboard': {
+          // 走服务端读系统剪贴板：不受浏览器剪贴板权限限制，也不弹授权框
+          const data = await callServer('/api/clipboard');
+          sendResponse({ ok: true, data });
+          break;
+        }
+
+        case 'ocr-page': {
+          // 截当前可见标签页 → 本地 Windows OCR。
+          // 比网页版的 getDisplayMedia 好：**不用手动选窗口**，点一下就行。
+          // 依赖 activeTab（点扩展图标时授予），所以必须是从面板里触发。
+          let dataUrl;
+          try {
+            const winId = sender && sender.tab ? sender.tab.windowId : null;
+            dataUrl = await chrome.tabs.captureVisibleTab(winId, { format: 'png' });
+          } catch (e) {
+            sendResponse({ ok: false, error: '截屏失败：' + ((e && e.message) || e) +
+              '（若提示权限不足，请先点一下扩展图标再试）' });
+            break;
+          }
+          const data = await callServer('/api/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: dataUrl, country: msg.country || 'UNKNOWN',
+                                   platform: msg.platform || 'unknown', category: 'unknown' })
+          });
+          sendResponse({ ok: true, data });
+          break;
+        }
 
         case 'analyze': {
           const data = await callServer('/api/analyze', {

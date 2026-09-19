@@ -98,12 +98,25 @@ const setupView = `
   </div>
 </div>`;
 
-/* ---------------- 视图 2：正常工作（浅色） ---------------- */
+/* ---------------- 视图 2：正常工作（浅色 + 折叠） ---------------- */
+function foldClosed(title, badge, inner) {
+  return `<div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">${title}</span>${badge ? '<span class="pill i">' + badge + '</span>' : ''}</div>
+    <div class="foldbd">${inner || ''}</div>
+  </div>`;
+}
+
 const mainView = `
 <div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
-<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。</div>
-<div class="card">
-  <div class="sec">操作</div>
+<div class="card" data-nofold="1">
+  <div class="sec">读取源</div>
+  <div class="srcbar">
+    <button class="srcbtn on">页面</button>
+    <button class="srcbtn">剪贴板</button>
+    <button class="srcbtn">窗口</button>
+    <button class="srcbtn">读屏</button>
+  </div>
+  <div class="sec" style="margin-top:4px">操作</div>
   <div class="row">
     <button class="btn pri">读取并生成话术</button>
     <button class="btn">▶ 自动监听</button>
@@ -114,42 +127,24 @@ const mainView = `
     <select class="sel" style="flex:1"><option>英文</option></select>
   </div>
 </div>
-<div class="card">
-  <div class="sec">当前平台</div>
-  <div class="kv"><span>适配器</span><span>通用（自动识别）</span></div>
-  <div class="kv"><span>消息区识别</span><span>启发式自动识别</span></div>
-  <div class="kv"><span>读取到</span><span>8 条消息</span></div>
-</div>
-<div class="card">
-  <div class="sec">意图 / 情绪 / 紧急度</div>
-  <div><span class="pill i">质量投诉 96%</span></div>
-  <div class="kv"><span>情绪</span><span>negative / 强度 4</span></div>
-  <div class="kv"><span>紧急度</span><span><span style="color:#e5484d">critical</span></span></div>
-  <div class="kv"><span>知识覆盖</span><span>sufficient</span></div>
-  <div><span class="pill r">平台介入风险</span></div>
-</div>
-<div class="card">
-  <div class="sec">政策依据（1 条）</div>
-  <div class="ev">
-    <div class="evt">西班牙商品瑕疵救济顺位</div>
-    <div class="evs">买方主张瑕疵救济时，商家应先修理或更换；不能履行时可要求减价或解除合同。</div>
-    <div class="evm">ES-TRLGDCU-118 · ES · 生效 2014-03-27 · 匹配 0.87</div>
-  </div>
-</div>
-<div class="sec" style="margin:2px 0 8px">候选话术（3 条）</div>
+
+<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对政策依据，避免口径与该国法规或平台规则冲突。</div>
+
+<div class="sec" style="margin:2px 0 8px">候选话术（3 条）<span style="color:var(--muted);font-weight:400"> · 推荐 c1</span></div>
+
 <div class="cand rec">
   <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
   <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
   <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
-  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button></div>
+  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
 </div>
+
 <div class="cand">
   <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us…</div>
+  <div class="cb">We are very sorry the quality issue caused you trouble…</div>
   <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
-  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>命中：<b>退款</b><br>建议：补充"14 天内可无理由退货"的说明</div>
+  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
 </div>`;
-
 const html = `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><title>扩展面板预览（浅色）</title>
 <style>

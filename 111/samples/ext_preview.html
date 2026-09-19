@@ -93,6 +93,32 @@
 .fab.hidden{display:none}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
 .dot.on{background:var(--ok)}.dot.off{background:var(--danger)}
+/* ---------- 可折叠区块 ----------
+   为什么默认收起：面板里除了"候选话术"，其余都是辅助信息。
+   全部摊开会把核心产出挤到屏幕外，新人根本找不到该点什么。 */
+.fold{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:10px;overflow:hidden}
+.foldhd{display:flex;align-items:center;gap:7px;padding:10px 12px;cursor:pointer;user-select:none}
+.foldhd:hover{background:#fafbfe}
+.foldchev{font-size:9px;color:var(--muted);width:11px;flex:0 0 auto;transition:transform .15s}
+.foldttl{font-size:12px;font-weight:600;flex:1;min-width:0}
+.foldbd{padding:0 13px 12px}
+.fold.closed .foldbd{display:none}
+.fold .foldhd .pill{margin:0}
+/* ---------- 读取源按钮排 ---------- */
+.srcbar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.srcbtn{flex:1 1 auto;min-width:58px;padding:7px 4px;border:1px solid var(--border);background:var(--card);
+  border-radius:9px;font-size:11.5px;cursor:pointer;font-family:inherit;color:var(--text);
+  text-align:center;transition:all .15s;white-space:nowrap}
+.srcbtn:hover{border-color:var(--primary);color:var(--primary)}
+.srcbtn.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.srcbtn:disabled{opacity:.45;cursor:not-allowed}
+.winpick{max-height:190px;overflow-y:auto}
+.winpick .winrow{padding:7px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;
+  cursor:pointer;font-size:11.5px;line-height:1.5}
+.winpick .winrow:hover{border-color:var(--primary);background:#fafbfe}
+.winpick .winrow .wt{font-weight:600}
+.winpick .winrow .wp{color:var(--muted);font-size:10.5px}
 /* ---------- 首次配置：输入自己的 API Key（替代原项目的登录界面） ---------- */
 .setup{padding:2px}
 .setup-hero{text-align:center;padding:14px 0 14px}
@@ -187,9 +213,15 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
     </div>
     <div class="bd" style="height:604px">
 <div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
-<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。</div>
-<div class="card">
-  <div class="sec">操作</div>
+<div class="card" data-nofold="1">
+  <div class="sec">读取源</div>
+  <div class="srcbar">
+    <button class="srcbtn on">页面</button>
+    <button class="srcbtn">剪贴板</button>
+    <button class="srcbtn">窗口</button>
+    <button class="srcbtn">读屏</button>
+  </div>
+  <div class="sec" style="margin-top:4px">操作</div>
   <div class="row">
     <button class="btn pri">读取并生成话术</button>
     <button class="btn">▶ 自动监听</button>
@@ -200,40 +232,23 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
     <select class="sel" style="flex:1"><option>英文</option></select>
   </div>
 </div>
-<div class="card">
-  <div class="sec">当前平台</div>
-  <div class="kv"><span>适配器</span><span>通用（自动识别）</span></div>
-  <div class="kv"><span>消息区识别</span><span>启发式自动识别</span></div>
-  <div class="kv"><span>读取到</span><span>8 条消息</span></div>
-</div>
-<div class="card">
-  <div class="sec">意图 / 情绪 / 紧急度</div>
-  <div><span class="pill i">质量投诉 96%</span></div>
-  <div class="kv"><span>情绪</span><span>negative / 强度 4</span></div>
-  <div class="kv"><span>紧急度</span><span><span style="color:#e5484d">critical</span></span></div>
-  <div class="kv"><span>知识覆盖</span><span>sufficient</span></div>
-  <div><span class="pill r">平台介入风险</span></div>
-</div>
-<div class="card">
-  <div class="sec">政策依据（1 条）</div>
-  <div class="ev">
-    <div class="evt">西班牙商品瑕疵救济顺位</div>
-    <div class="evs">买方主张瑕疵救济时，商家应先修理或更换；不能履行时可要求减价或解除合同。</div>
-    <div class="evm">ES-TRLGDCU-118 · ES · 生效 2014-03-27 · 匹配 0.87</div>
-  </div>
-</div>
-<div class="sec" style="margin:2px 0 8px">候选话术（3 条）</div>
+
+<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对政策依据，避免口径与该国法规或平台规则冲突。</div>
+
+<div class="sec" style="margin:2px 0 8px">候选话术（3 条）<span style="color:var(--muted);font-weight:400"> · 推荐 c1</span></div>
+
 <div class="cand rec">
   <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
   <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
   <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
-  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button></div>
+  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
 </div>
+
 <div class="cand">
   <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us…</div>
+  <div class="cb">We are very sorry the quality issue caused you trouble…</div>
   <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
-  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>命中：<b>退款</b><br>建议：补充"14 天内可无理由退货"的说明</div>
+  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
 </div></div>
     <div class="ft">
       <span class="dot on"></span>
@@ -259,9 +274,15 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
     </div>
     <div class="bd" style="height:524px">
 <div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
-<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。</div>
-<div class="card">
-  <div class="sec">操作</div>
+<div class="card" data-nofold="1">
+  <div class="sec">读取源</div>
+  <div class="srcbar">
+    <button class="srcbtn on">页面</button>
+    <button class="srcbtn">剪贴板</button>
+    <button class="srcbtn">窗口</button>
+    <button class="srcbtn">读屏</button>
+  </div>
+  <div class="sec" style="margin-top:4px">操作</div>
   <div class="row">
     <button class="btn pri">读取并生成话术</button>
     <button class="btn">▶ 自动监听</button>
@@ -272,40 +293,23 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
     <select class="sel" style="flex:1"><option>英文</option></select>
   </div>
 </div>
-<div class="card">
-  <div class="sec">当前平台</div>
-  <div class="kv"><span>适配器</span><span>通用（自动识别）</span></div>
-  <div class="kv"><span>消息区识别</span><span>启发式自动识别</span></div>
-  <div class="kv"><span>读取到</span><span>8 条消息</span></div>
-</div>
-<div class="card">
-  <div class="sec">意图 / 情绪 / 紧急度</div>
-  <div><span class="pill i">质量投诉 96%</span></div>
-  <div class="kv"><span>情绪</span><span>negative / 强度 4</span></div>
-  <div class="kv"><span>紧急度</span><span><span style="color:#e5484d">critical</span></span></div>
-  <div class="kv"><span>知识覆盖</span><span>sufficient</span></div>
-  <div><span class="pill r">平台介入风险</span></div>
-</div>
-<div class="card">
-  <div class="sec">政策依据（1 条）</div>
-  <div class="ev">
-    <div class="evt">西班牙商品瑕疵救济顺位</div>
-    <div class="evs">买方主张瑕疵救济时，商家应先修理或更换；不能履行时可要求减价或解除合同。</div>
-    <div class="evm">ES-TRLGDCU-118 · ES · 生效 2014-03-27 · 匹配 0.87</div>
-  </div>
-</div>
-<div class="sec" style="margin:2px 0 8px">候选话术（3 条）</div>
+
+<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对政策依据，避免口径与该国法规或平台规则冲突。</div>
+
+<div class="sec" style="margin:2px 0 8px">候选话术（3 条）<span style="color:var(--muted);font-weight:400"> · 推荐 c1</span></div>
+
 <div class="cand rec">
   <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
   <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
   <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
-  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button></div>
+  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
 </div>
+
 <div class="cand">
   <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us…</div>
+  <div class="cb">We are very sorry the quality issue caused you trouble…</div>
   <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
-  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>命中：<b>退款</b><br>建议：补充"14 天内可无理由退货"的说明</div>
+  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
 </div></div>
     <div class="ft">
       <span class="dot on"></span>

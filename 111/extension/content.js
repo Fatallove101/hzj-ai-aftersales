@@ -23,6 +23,9 @@
     lastText: '',
     lastSource: '',
     readNote: '',
+    src: 'dom',
+    folds: {},
+    ocrInfo: null,
     uiMode: 'dock',        // dock=挤开页面  float=悬浮可拖动
     uiSize: 'normal',
     pos: { x: -1, y: -1 },
@@ -292,6 +295,32 @@
 .fab.hidden{display:none}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
 .dot.on{background:var(--ok)}.dot.off{background:var(--danger)}
+/* ---------- 可折叠区块 ----------
+   为什么默认收起：面板里除了"候选话术"，其余都是辅助信息。
+   全部摊开会把核心产出挤到屏幕外，新人根本找不到该点什么。 */
+.fold{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:10px;overflow:hidden}
+.foldhd{display:flex;align-items:center;gap:7px;padding:10px 12px;cursor:pointer;user-select:none}
+.foldhd:hover{background:#fafbfe}
+.foldchev{font-size:9px;color:var(--muted);width:11px;flex:0 0 auto;transition:transform .15s}
+.foldttl{font-size:12px;font-weight:600;flex:1;min-width:0}
+.foldbd{padding:0 13px 12px}
+.fold.closed .foldbd{display:none}
+.fold .foldhd .pill{margin:0}
+/* ---------- 读取源按钮排 ---------- */
+.srcbar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.srcbtn{flex:1 1 auto;min-width:58px;padding:7px 4px;border:1px solid var(--border);background:var(--card);
+  border-radius:9px;font-size:11.5px;cursor:pointer;font-family:inherit;color:var(--text);
+  text-align:center;transition:all .15s;white-space:nowrap}
+.srcbtn:hover{border-color:var(--primary);color:var(--primary)}
+.srcbtn.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.srcbtn:disabled{opacity:.45;cursor:not-allowed}
+.winpick{max-height:190px;overflow-y:auto}
+.winpick .winrow{padding:7px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;
+  cursor:pointer;font-size:11.5px;line-height:1.5}
+.winpick .winrow:hover{border-color:var(--primary);background:#fafbfe}
+.winpick .winrow .wt{font-weight:600}
+.winpick .winrow .wp{color:var(--muted);font-size:10.5px}
 /* ---------- 首次配置：输入自己的 API Key（替代原项目的登录界面） ---------- */
 .setup{padding:2px}
 .setup-hero{text-align:center;padding:14px 0 14px}
@@ -413,6 +442,183 @@
   const ESC_ZH = { supervisor_required: '技能策略要求主管介入', critical_urgency: '紧急度极高', escalated_emotion: '情绪失控', high_value_dispute: '高价值纠纷', insufficient_knowledge: '知识库无依据', all_candidates_rejected: '全部候选被拦截', platform_risk: '平台/拒付风险', legal_risk: '法律风险', customer_request: '客户要求转人工', low_acceptance: '连续未采纳', degraded_pipeline: '链路降级' };
   const RISK_ZH = { chargeback_risk: '拒付风险', platform_intervention_risk: '平台介入风险', legal_risk: '法律风险', public_opinion_risk: '舆情风险', repeat_complaint: '重复投诉', minor_involved: '涉未成年人' };
 
+  /* ---------------- 可折叠区块 ----------------
+     除候选话术外的所有卡片都收进折叠区，默认收起，状态按站点记忆。 */
+  function fold(id, title, nodes, opts) {
+    opts = opts || {};
+    const open = !!state.folds[id];
+    const c = h('div', { class: 'fold' + (open ? '' : ' closed') });
+    const hd = h('div', { class: 'foldhd' });
+    hd.appendChild(h('span', { class: 'foldchev', text: '▶' }));
+    hd.appendChild(h('span', { class: 'foldttl', text: title }));
+    if (opts.badge) hd.appendChild(h('span', { class: 'pill ' + (opts.badgeKind || 'i'), text: opts.badge }));
+    const bd = h('div', { class: 'foldbd' });
+    (nodes || []).forEach(function (n) { if (n) bd.appendChild(n); });
+    c.appendChild(hd); c.appendChild(bd);
+    hd.onclick = function () {
+      const closed = c.classList.toggle('closed');
+      state.folds[id] = !closed;
+      saveFolds();
+    };
+    // 打开时把箭头转过来
+    const ch = hd.firstChild;
+    if (open) ch.style.transform = 'rotate(90deg)';
+    const origToggle = hd.onclick;
+    hd.onclick = function () { origToggle(); ch.style.transform = c.classList.contains('closed') ? '' : 'rotate(90deg)'; };
+    return c;
+  }
+
+  /* 把渲染出来的辅助卡片转成可折叠，默认收起。
+     用后处理而不是改七处卡片构造代码 —— 改动面小、不易漏。
+     注意：候选话术不是 .card（直接挂 body），所以天然不受影响，始终展开。 */
+  function makeCollapsible(card) {
+    if (!card || !card.classList || card.classList.contains('fold')) return;
+    const sec = card.querySelector('.sec');
+    if (!sec) return;
+    const title = String(sec.textContent || '').trim();
+    if (!title) return;
+    const id = 'sec:' + title.replace(/\s+/g, '');
+    const rest = Array.prototype.slice.call(card.children).filter(function (c) { return c !== sec; });
+    if (!rest.length) return;
+
+    card.innerHTML = '';
+    card.classList.add('fold');
+    const hd = h('div', { class: 'foldhd' });
+    const ch = h('span', { class: 'foldchev', text: '▶' });
+    hd.appendChild(ch);
+    hd.appendChild(h('span', { class: 'foldttl', text: title }));
+    const bd = h('div', { class: 'foldbd' });
+    rest.forEach(function (n) { bd.appendChild(n); });
+    card.appendChild(hd); card.appendChild(bd);
+
+    if (state.folds[id]) { ch.style.transform = 'rotate(90deg)'; }
+    else { card.classList.add('closed'); }
+
+    hd.onclick = function () {
+      const closed = card.classList.toggle('closed');
+      state.folds[id] = !closed;
+      ch.style.transform = closed ? '' : 'rotate(90deg)';
+      saveFolds();
+    };
+  }
+
+  function applyFolds() {
+    if (!body) return;
+    const folded = [];
+    Array.prototype.slice.call(body.querySelectorAll('.card')).forEach(function (c) {
+      if (c.getAttribute('data-nofold') === '1') return;
+      makeCollapsible(c);
+      folded.push(c);
+    });
+    // 辅助信息统一挪到候选话术之后。
+    // 核心产出（话术）应该紧跟在操作条下面 —— 新人打开面板第一眼要看到的就是它，
+    // 而不是"当前平台/意图情绪"这些诊断信息。
+    folded.forEach(function (c) { body.appendChild(c); });
+  }
+
+  function saveFolds() {
+    try { const o = {}; o['folds:' + HOST] = state.folds; chrome.storage.local.set(o); } catch (e) { }
+  }
+  function loadFolds(cb) {
+    try {
+      chrome.storage.local.get('folds:' + HOST, function (r) {
+        const v = r && r['folds:' + HOST];
+        if (v) state.folds = v;
+        cb && cb();
+      });
+    } catch (e) { cb && cb(); }
+  }
+
+  /* ---------------- 读取源 ----------------
+     扩展一共 5 种读法。这里把「服务端已实现」的四种接出来，
+     避免扩展重复实现一套。 */
+  const READ_SOURCES = [
+    { id: 'dom',  label: '页面',   title: '直读页面上的对话元素（最准，推荐）' },
+    { id: 'clip', label: '剪贴板', title: '读系统剪贴板 —— 在任何软件里选中文字按 Ctrl+C，再点这里' },
+    { id: 'win',  label: '窗口',   title: '直读本机某个窗口的文字（桌面客户端用，不走 OCR 无误差）' },
+    { id: 'ocr',  label: '读屏',   title: '截当前标签页做 OCR（DOM 读不到时用）' }
+  ];
+
+  function renderSourceBar() {
+    const bar = h('div', { class: 'srcbar' });
+    READ_SOURCES.forEach(function (s) {
+      const b = h('button', {
+        class: 'srcbtn' + (state.src === s.id ? ' on' : ''),
+        text: s.label, title: s.title
+      });
+      if (state.busy) b.disabled = true;
+      b.onclick = function () { useSource(s.id); };
+      bar.appendChild(b);
+    });
+    return bar;
+  }
+
+  async function useSource(id) {
+    state.src = id;
+    if (id === 'dom') { render(); analyze(); return; }
+
+    if (id === 'clip') { await readClipboard(); return; }
+    if (id === 'ocr')  { await readScreen(); return; }
+    if (id === 'win')  { await showWindowPicker(); return; }
+  }
+
+  async function readClipboard() {
+    state.busy = true; state.lastError = ''; render();
+    const res = await msg('clipboard');
+    state.busy = false;
+    if (!res || !res.ok) { state.lastError = (res && res.error) || '读剪贴板失败'; render(); return; }
+    const t = (res.data && res.data.text) || '';
+    if (!t.trim()) { state.lastError = '剪贴板是空的。先选中买家的话按 Ctrl+C，再点「剪贴板」。'; render(); return; }
+    await runAnalyze(t, '剪贴板');
+  }
+
+  async function readScreen() {
+    state.busy = true; state.lastError = ''; toast('正在截屏识别…'); render();
+    const res = await msg('ocr-page', { country: state.country, platform: state.platform });
+    state.busy = false;
+    if (!res || !res.ok) { state.lastError = (res && res.error) || '截屏失败'; render(); return; }
+    const ocr = res.data && res.data.ocr;
+    const t = (ocr && ocr.text) || '';
+    if (!t.trim()) { state.lastError = '没从截图里识别到文字。换个屏幕区域或改用「剪贴板」。'; render(); return; }
+    state.ocrInfo = ocr;
+    await runAnalyze(t, '读屏 OCR · ' + (ocr.language_used || ''));
+  }
+
+  async function showWindowPicker() {
+    state.busy = true; render();
+    const res = await msg('windows');
+    state.busy = false;
+    const wins = (res && res.ok && res.data && res.data.windows) || [];
+    body.innerHTML = '';
+    body.appendChild(h('div', { class: 'banner warn', text: '选择一个要读取的窗口。列表里是当前所有可见窗口。' }));
+    if (!wins.length) {
+      body.appendChild(h('div', { class: 'empty', text: '没取到窗口列表' }));
+      const b = h('button', { class: 'btn', text: '返回', onclick: function () { state.src = 'dom'; render(); } });
+      body.appendChild(b);
+      return;
+    }
+    const box = h('div', { class: 'winpick' });
+    wins.forEach(function (w) {
+      const row = h('div', { class: 'winrow' });
+      row.appendChild(h('div', { class: 'wt', text: w.title || '(无标题)' }));
+      row.appendChild(h('div', { class: 'wp', text: (w.process || '') + '  hwnd=' + w.hwnd }));
+      row.onclick = function () { readWindow(w); };
+      box.appendChild(row);
+    });
+    body.appendChild(box);
+    body.appendChild(h('button', { class: 'btn', text: '返回', onclick: function () { state.src = 'dom'; render(); } }));
+  }
+
+  async function readWindow(w) {
+    state.busy = true; state.lastError = ''; render();
+    const res = await msg('uia', { payload: { hwnd: w.hwnd, scope: 'window' } });
+    state.busy = false;
+    if (!res || !res.ok) { state.lastError = (res && res.error) || '读窗口失败'; render(); return; }
+    const t = (res.data && res.data.text) || '';
+    if (!t.trim()) { state.lastError = '该窗口没读到文字（可能是自绘界面，改用「读屏」）。'; render(); return; }
+    await runAnalyze(t, '窗口直读 · ' + (w.title || '').slice(0, 20));
+  }
+
   function renderIdle(msgHtml) {
     // ⚠️ 这里**不能**写 body.innerHTML = ''。
     //    那会把上面刚加的"连不上本地服务"横幅和适配器信息一起擦掉，
@@ -425,7 +631,7 @@
   function render() {
     if (!shadow) return;
     body.innerHTML = '';
-    try { renderInner(); }
+    try { renderInner(); applyFolds(); }
     catch (err) {
       const m = (err && (err.stack || err.message)) || String(err);
       console.error('[售后助手] 渲染失败', err);
@@ -1029,7 +1235,10 @@
       body.insertBefore(bar, body.firstChild);
     }
     bar.innerHTML = '';
-    bar.appendChild(h('div', { class: 'sec', text: '操作' }));
+    bar.appendChild(h('div', { class: 'sec', text: '读取源' }));
+    bar.appendChild(renderSourceBar());
+    bar.setAttribute('data-nofold', '1');
+    bar.appendChild(h('div', { class: 'sec', text: '操作', style: 'margin-top:4px' }));
     const row1 = h('div', { class: 'row' });
     row1.appendChild(h('button', { class: 'btn pri', text: '读取并生成话术', onclick: analyze }));
     row1.appendChild(state.watching
@@ -1147,6 +1356,7 @@
 
     // 读取小窗形态偏好（按站点记忆）
     await new Promise(function (res) { loadUiPrefs(res); });
+    await new Promise(function (res) { loadFolds(res); });
 
     state.adapter = AIH.Adapters.detect();
     // 平台默认值
