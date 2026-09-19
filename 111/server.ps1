@@ -34,6 +34,46 @@ function Write-AuditLog {
   } catch { }
 }
 
+# ---------------------------------------------------------------------
+# 日志脱敏
+#
+# 为什么需要：Write-ReqLog 原来把**原始请求体**整行写进 logs\requests.log，
+# 结果保存 API Key 的那次请求把密钥明文落了盘，分析请求还把客户对话原文落了盘。
+# 而 README 里当时写着"永不进日志" —— 那句话是错的（照注释写的，没实测）。
+#
+# 原则：日志要能用来排查问题，但不能留存任何"能还原出敏感内容"的东西。
+#   · 密钥类字段：整个值抹掉（连长度都不留）
+#   · 正文类字段：留前 12 字 + 总长度（够判断"读到了没有、大概多长"，不足以还原）
+#   · 兜底：任何 bce-v3/ 开头的串一律抹掉
+# ---------------------------------------------------------------------
+function Protect-LogBody {
+  param([string]$Text)
+  if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+  $t = $Text
+
+  # ① 密钥类字段：整个值抹掉（连长度都不留）。
+  #    注意用 IgnoreCase —— 实际头是 "Authorization"，一开始写成小写就漏了。
+  $secretKeys = 'api_key|apikey|access_key|secret|token|password|passwd|pwd|authorization|credential'
+  $t = [regex]::Replace($t, '("(?:' + $secretKeys + ')"\s*:\s*")([^"]*)(")', '$1***$3', 'IgnoreCase')
+
+  # ② 正文类字段：**只留长度，不留前缀**。
+  #    一开始留了前 12 字，但 12 个中文足以还原关键信息
+  #    （"非常抱歉给您带来不便，我…" —— 这就是真实话术）。
+  #    日志只需要能回答"读到了没有、大概多长"，不需要原文。
+  $bodyKeys = 'text|final_text|suggested_text|candidate_text_zh|candidate_text_tar|reply_text|translated_text|raw_text|query|snippet|input'
+  $t = [regex]::Replace($t, '("(?:' + $bodyKeys + ')"\s*:\s*")([^"]*)(")', {
+    param($m)
+    $v = $m.Groups[2].Value
+    return $m.Groups[1].Value + '***[共' + $v.Length + ' 字]' + $m.Groups[3].Value
+  }, 'IgnoreCase')
+
+  # ③ 兜底：任何形如 bce-v3/xxx 的串。
+  #    就算字段名变了、或者 JSON 被截断（没有闭合引号），这一层也能兜住。
+  $t = [regex]::Replace($t, 'bce-v3/[A-Za-z0-9_\-\.]+', 'bce-v3/***已打码***', 'IgnoreCase')
+  return $t
+}
+
+
 function Write-ReqLog {
   param([string]$Line)
   try {
@@ -271,10 +311,13 @@ function Handle-Request {
     if ($Request.headers.ContainsKey('origin')) { $org = $Request.headers['origin'] }
     Write-ReqLog -Line ((Get-Date -Format 'HH:mm:ss') + '  ' + $Request.method + ' ' + $path +
                         '  bodyLen=' + $Request.body.Length + '  origin=' + $org)
-    Write-ReqLog -Line ('            headers: ' + ($hdr -join ' | '))
+    Write-ReqLog -Line ('            headers: ' + (Protect-LogBody -Text ($hdr -join ' | ')))
     if ($Request.body.Length -gt 0) {
       $bt = ''
       try { $bt = [System.Text.Encoding]::UTF8.GetString($Request.body) } catch { $bt = '(解码失败)' }
+      # 顺序很重要：**先脱敏再截断**。反过来的话，截断可能把 JSON 截在半个字段上，
+      # 正则匹配不到闭合引号 → 密钥就漏出去了。（脱敏后长度会变，所以截断放后面）
+      $bt = Protect-LogBody -Text $bt
       if ($bt.Length -gt 260) { $bt = $bt.Substring(0, 260) + '…' }
       Write-ReqLog -Line ('            body: ' + $bt)
     }

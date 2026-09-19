@@ -170,6 +170,43 @@ if (-not (Test-Path $unitFile)) {
   Write-Host ("  合规正向样本误杀数（应为 0）: {0}" -f $fp)
 }
 
+# ---------------------------------------------------------------------
+Write-Host ""
+Write-Host "==================== 第 4 部分：日志脱敏自检 ====================" -ForegroundColor Cyan
+Write-Host "（v0.33.0 之前 Write-ReqLog 会把原始请求体整行落盘，密钥和客户对话都进过日志）"
+Write-Host ""
+$srvSrc = [System.IO.File]::ReadAllText((Join-Path $Root 'server.ps1'), (New-Object System.Text.UTF8Encoding($false)))
+$mm = [regex]::Match($srvSrc, '(?s)function Protect-LogBody \{.*?\n\}')
+if (-not $mm.Success) {
+  Write-Host "  x 找不到 Protect-LogBody（脱敏层被删了？）" -ForegroundColor Red
+  $fail++
+} else {
+  . ([scriptblock]::Create($mm.Value))
+  $cases = @(
+    @{ n = 'api_key 整值抹掉';  i = '{"api_key":"bce-v3/ALTAK-SECRETPART/cad3a321"}'; must = '***';          mustNot = 'ALTAK-SECRETPART' },
+    @{ n = '大小写不敏感';      i = '{"Authorization":"Bearer bce-v3/SECRETPART"}';  must = '***';          mustNot = 'SECRETPART' },
+    @{ n = '对话正文不留内容';  i = '{"text":"非常抱歉给您带来不便，我们会尽快核实处理。"}'; must = '共';  mustNot = '非常抱歉' },
+    @{ n = '话术正文不留内容';  i = '{"final_text":"非常抱歉给您带来不便"}';        must = '共';           mustNot = '非常抱歉' },
+    @{ n = '截断的 JSON 也兜住'; i = '{"api_key":"bce-v3/TRUNCATED-NO-CLOSE';        must = '已打码';       mustNot = 'TRUNCATED-NO-CLOSE' },
+    @{ n = '普通内容不误伤';    i = '{"country":"DE","platform":"amazon"}';         must = 'DE';           mustNot = '***' }
+  )
+  foreach ($c in $cases) {
+    $o = Protect-LogBody -Text $c.i
+    # 必须用 .Contains 而不是 -like。
+    # 踩过的坑：mustNot='***' 拼出来的模式是 '*****' —— 全是通配符，
+    # 永远匹配成功 → -notlike 永远为假 → 这条断言恒失败（测试自己不成立）。
+    $ok1 = $o.Contains($c.must)
+    $ok2 = -not $o.Contains($c.mustNot)
+    if ($ok1 -and $ok2) {
+      Write-Host ("  OK  {0}" -f $c.n) -ForegroundColor Green
+    } else {
+      Write-Host ("  x   {0}" -f $c.n) -ForegroundColor Red
+      Write-Host ("        输入: {0}" -f $c.i)
+      Write-Host ("        输出: {0}" -f $o)
+      $fail++
+    }
+  }
+}
 Write-Host ""
 Write-Host "==============================================================" -ForegroundColor Cyan
 if ($fail -eq 0) {
@@ -179,3 +216,4 @@ if ($fail -eq 0) {
 }
 Write-Host "==============================================================" -ForegroundColor Cyan
 exit $fail
+

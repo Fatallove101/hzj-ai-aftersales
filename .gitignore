@@ -30,3 +30,5 @@ desktop.ini
 *.bak
 111/logs/
 111/samples/_vframe/
+# 用户自定义规则（本地数据，不该进仓库）
+111/data/custom_rules.jsonl

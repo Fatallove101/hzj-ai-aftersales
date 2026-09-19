@@ -324,7 +324,7 @@ powershell -ExecutionPolicy Bypass -File tools\set-api-key.ps1
 | **DPAPI 加密** | 用 Windows 数据保护 API 加密，绑定**当前 Windows 账号**。把密文拷到别的电脑或别的账号下**解不开**，等于废纸 |
 | **不放在仓库里** | 优先存 `%APPDATA%\hzj-agent\`；该位置不可写时才退到 `111\.secrets\`（同样加密，且被 `.gitignore` 挡死） |
 | **永不返回前端** | 所有 HTTP 接口只返回 `has_key: true/false` 和 8 位指纹，**没有任何接口能取回密钥本身** |
-| **永不进日志** | 所有对外输出都过 `Protect-Secret` 掩码；异常信息也会先把密钥和 `Bearer xxx` 抹掉 |
+| **日志脱敏（v0.33.0 起）** | 请求体落盘前过 `Protect-LogBody`：密钥整值抹掉、正文只留长度。**v0.33.0 之前没有这一层**，密钥和客户对话原文确实进过 `logs\requests.log`，已修并删除存量日志 |
 | **只暴露指纹** | `tools\set-api-key.ps1 -Status` 显示 SHA256 前 8 位，够你确认"是不是我存的那把"，但推不出密钥 |
 
 ### 第 3 步：核对请求形状（重要）
