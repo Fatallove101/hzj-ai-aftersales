@@ -1,4 +1,4 @@
-/* =====================================================================
+﻿/* =====================================================================
    content.js  ·  侧边栏主体
    在客服后台右侧注入一个面板：读取对话 → 生成话术 → 一键插入输入框
    用 Shadow DOM 隔离样式，避免与宿主页面互相污染。
@@ -36,6 +36,7 @@
     editTar: '',            // 同步后的外文
     editSyncing: false,
     editMsg: '',
+    busySince: 0,           // 本次分析开始的时间戳（用于显示已等待秒数）
     folds: {},
     ocrInfo: null,
     uiMode: 'dock',        // dock=挤开页面  float=悬浮可拖动
@@ -370,6 +371,8 @@
 .srcbtn.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
 .srcbtn:disabled{opacity:.45;cursor:not-allowed}
 .winpick{max-height:190px;overflow-y:auto}
+/* 手动输入框：给足高度，粘贴多轮对话时不憋屈 */
+.manualbox{min-height:132px;width:100%;font-size:12.5px;line-height:1.7;resize:vertical}
 .winpick .winrow{padding:7px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;
   cursor:pointer;font-size:11.5px;line-height:1.5}
 .winpick .winrow:hover{border-color:var(--primary);background:#fafbfe}
@@ -732,7 +735,7 @@
     // 放在候选话术标题旁而不是上面操作条里 —— 它作用的正是这个框的内容，
     // 按钮和它影响的东西应该挨着（原来叫「分析」，用户反馈看不懂）。
     cands.hd.appendChild(h('button', {
-      class: 'btn sm pri', text: '换一批', title: '重新读取当前对话，刷新下方候选话术',
+      class: 'btn sm pri', text: (state.busy ? ('生成中 ' + Math.round((Date.now() - (state.busySince || Date.now())) / 1000) + 's') : '换一批'), title: '重新读取当前对话，刷新下方候选话术',
       onclick: () => analyze(true)   // 换一批 = 强制重新生成
     }));
     // ③ 详情：包住所有折叠卡片
@@ -777,18 +780,34 @@
 
     // 手动输入：自己粘贴对话。任何来源（第三方系统、截图里抄的、口头转述）都能用。
     if (state.src === 'manual') {
-      const ta = h('textarea', { class: 'rawtext', style: 'min-height:118px' });
-      ta.placeholder = '把客户对话粘贴到这里（可多行）。中文走本地分析，外文会先翻译再分析。';
+      // 手动输入：自己粘贴对话。任何来源（第三方系统、抄来的、口头转述）都能用。
+      const hdRow = h('div', { class: 'row', style: 'margin-bottom:6px' });
+      hdRow.appendChild(h('span', { class: 'sec', style: 'margin:0', text: '对话内容（可编辑）' }));
+      hdRow.appendChild(h('span', { style: 'flex:1' }));
+      const bClr = h('button', { class: 'btn sm ghost', text: '清空' });
+      bClr.onclick = function () { state.manualText = ''; render(); };
+      hdRow.appendChild(bClr);
+      bd.appendChild(hdRow);
+
+      const ta = h('textarea', { class: 'rawtext manualbox' });
+      ta.placeholder = '把客户对话粘贴到这里（可多行）。' + String.fromCharCode(10) +
+        '中文走本地分析；外文会先翻译再分析；多轮对话直接整段贴进来即可。';
       ta.value = state.manualText || '';
       ta.oninput = function () { state.manualText = ta.value; };
       bd.appendChild(ta);
-      const bGo = h('button', { class: 'btn pri sm', text: '用这段对话生成话术', style: 'margin-top:8px' });
+
+      const foot = h('div', { class: 'row', style: 'margin-top:9px' });
+      const bGo = h('button', { class: 'btn pri sm', text: '用这段对话生成话术' });
       bGo.onclick = function () {
         const t = (state.manualText || '').trim();
         if (!t) { state.lastError = '请先粘贴或输入对话内容'; render(); return; }
         runAnalyze(t, '手动输入');
       };
-      bd.appendChild(bGo);
+      foot.appendChild(bGo);
+      const cnt = h('span', { class: 'tiny', text: (state.manualText || '').length + ' 字' });
+      foot.appendChild(cnt);
+      ta.addEventListener('input', function () { cnt.textContent = (state.manualText || '').length + ' 字'; });
+      bd.appendChild(foot);
       bd.appendChild(h('div', { class: 'tiny', style: 'margin-top:7px', text: '生成后结果会出现在下面「候选话术」框里。' }));
       return;
     }
@@ -1112,6 +1131,22 @@
     ]));
 
     // 没有分析结果：候选话术框给空态，详情框只留平台信息
+    // 生成中：给明确的进度反馈。
+    // 千帆这个模型单次要 20~40 秒 —— 没有反馈的等待，用户会以为卡死了。
+    if (state.busy) {
+      const el2 = (Date.now() - (state.busySince || Date.now())) / 1000;
+      const bx = h('div', { class: 'empty' });
+      bx.appendChild(h('div', { style: 'font-size:22px;margin-bottom:6px', text: '⏳' }));
+      bx.appendChild(h('div', { html: '<b>正在生成话术…</b>' }));
+      bx.appendChild(h('div', { class: 'tiny', style: 'margin-top:6px;line-height:1.8', html:
+        '已等待 <b>' + el2.toFixed(0) + '</b> 秒<br>' +
+        '调用千帆大模型通常需要 20~40 秒<br>' +
+        '（翻译 + 生成两轮，与提示词长度有关）' }));
+      candsBd.appendChild(bx);
+      renderFooterButtons();
+      return;
+    }
+
     if (!r) {
       candsBd.appendChild(h('div', { class: 'empty', html:
         '还没有生成话术<br><br>点上方「分析」，<br>或用「页面 / 剪贴板 / 窗口 / 读屏」读取对话' }));
@@ -1308,7 +1343,7 @@
     state.editCand = cand;
     state.editRes = res;
     state.editZh = cand.text_zh || '';
-    state.editTar = pickText(cand) || '';
+    state.editTar = pickTarget(cand) || '';   // 函数名是 pickTarget，不是 pickText
     state.editMsg = '';
     state.editSyncing = false;
     pushView('edit');
@@ -1412,11 +1447,13 @@
     if (!text) return;
 
     state.busy = true;
+    state.busySince = Date.now();
     resetView();                  // 从选中分析进来时自动退出子页面
     render();
 
     const res = await msg('analyze', { text: text, country: state.country, platform: state.platform, category: 'unknown' });
     state.busy = false;
+    state.busySince = 0;
 
     if (!res || !res.ok) {
       // ⚠️ 这里**绝对不能**把 serverOk 改成 false。
@@ -1552,6 +1589,9 @@
     popView();
   }, true);
   window.addEventListener('resize', function () { if (state.uiMode === 'float') applyUi(); }, true);
+
+  // 生成过程中每秒刷新一次，让「已等待 N 秒」动起来 —— 静止的数字看着就像卡死
+  setInterval(function () { if (state.busy && state.view === 'main') render(); }, 1000);
 
   function startWatch() {
     if (state.watching) return;
@@ -1761,6 +1801,7 @@
     render: render,
     renderFooterButtons: renderFooterButtons,
     buildPanes: buildPanes,
+    openEditor: openEditor,     // 点击「✎ 修改后采纳」的入口（pickText 未定义就是这么漏的）
     state: state
   };
   if (document.readyState === 'loading') {

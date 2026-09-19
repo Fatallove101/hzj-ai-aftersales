@@ -280,6 +280,30 @@ try {
     T.render();
     T.state.view = 'main';
 
+    // 走一遍点击「✎ 修改后采纳」的入口。
+    // 为什么必须覆盖：pickText 未定义就是这么漏的 ——
+    // 只测 render() 不测入口函数的话，点击报 ReferenceError 完全测不到。
+    T.state.targetLang = 'en';
+    T.openEditor(T.state.lastResult.candidates[0], T.state.lastResult);
+    T.render();
+    T.state.view = 'main';      // 必须复位 —— openEditor 会切到 edit 视图，
+    T.state.viewStack = [];     // 不复位的话下面的 render 会在 edit 分支就返回
+
+    // 再跑一遍「生成中」状态（新增的进度分支）
+    T.state.busy = true;
+    T.state.busySince = Date.now() - 12000;
+    T.render();
+    const busyTexts = collectText(context.document.documentElement).join('\n');
+    if (!busyTexts.includes('正在生成话术')) {
+      console.log('  ✕ 「生成中」状态没有渲染出进度提示');
+      failed++;
+    } else {
+      console.log('  ✓ 「生成中」状态渲染正常（含已等待秒数）');
+    }
+    T.state.busy = false;
+    T.state.busySince = 0;
+    T.render();
+
     const texts = collectText(context.document.documentElement).join('\n');
     const bad = [];
     if (texts.includes('渲染失败')) bad.push('renderInner 抛异常（面板出现"渲染失败"横幅）');
