@@ -393,6 +393,78 @@ function renderSettings() {
       '🔒 Key 用 Windows DPAPI 加密后只存本机，接口永不回显。获取方式：百度智能云 → 千帆 ModelBuilder → 模型服务 → API Key。'));
   }
 
+  // 知识源（本地 CSV / 千帆知识库）
+  const kbb = $('#setKb');
+  if (kbb) {
+    kbb.innerHTML = '<div class="hint">加载中…</div>';
+    fetch('/api/knowledge').then(x => x.json()).then(function (d) {
+      const k = (d && d.knowledge) || {};
+      kbb.innerHTML = '';
+      kbb.appendChild(kv('当前生效', '<b>' + esc(k.active_label || '-') + '</b>'));
+      kbb.appendChild(kv('本地知识库', (k.local_ready ? '✅ 就绪 · ' + k.local_count + ' 条政策' : '❌ 未加载')));
+      kbb.appendChild(kv('千帆知识库', (k.qianfan_ready ? '✅ 已配置' : '⬜ 未配置')));
+      if (k.degraded) {
+        kbb.appendChild(el('div', 'banner warn', '⚠ 已降级：' + esc(k.degrade_reason || '')));
+      }
+
+      const sel = el('select', 'sel');
+      [['local', '本地 CSV 知识库（开箱即用）'], ['qianfan', '千帆知识库（MCP / AppBuilder）']].forEach(function (o) {
+        const op = el('option'); op.value = o[0]; op.textContent = o[1];
+        if (o[0] === k.configured) op.selected = true;
+        sel.appendChild(op);
+      });
+      sel.style.marginTop = '10px';
+
+      const ep = el('input', 'sel');
+      ep.placeholder = '千帆检索端点，如 http://127.0.0.1:8080/mcp/search';
+      ep.value = k.qianfan_endpoint || '';
+      ep.style.marginTop = '8px';
+      const aid = el('input', 'sel');
+      aid.placeholder = 'AppBuilder 应用 ID（选填）'; aid.value = k.qianfan_app_id || ''; aid.style.marginTop = '8px';
+      const ds = el('input', 'sel');
+      ds.placeholder = '知识库 / 数据集 ID（选填）'; ds.value = k.qianfan_dataset || ''; ds.style.marginTop = '8px';
+
+      const msg = el('div', 'hint', '');
+      const row = el('div', 'row'); row.style.marginTop = '10px';
+
+      const bs = el('button', 'btn primary sm', '保存');
+      bs.onclick = async function () {
+        bs.disabled = true; bs.textContent = '保存中…';
+        try {
+          const r = await fetch('/api/knowledge', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: sel.value, qianfan_endpoint: ep.value.trim(),
+                                   qianfan_app_id: aid.value.trim(), qianfan_dataset: ds.value.trim() })
+          }).then(x => x.json());
+          if (!r.ok) msg.innerHTML = '<span style="color:var(--bad)">' + esc(r.error || '保存失败') + '</span>';
+          else { toast('已保存' + (r.knowledge.degraded ? '（当前降级到本地）' : '')); renderSettings(); return; }
+        } catch (e) { msg.innerHTML = '<span style="color:var(--bad)">' + esc(e.message) + '</span>'; }
+        bs.disabled = false; bs.textContent = '保存';
+      };
+      row.appendChild(bs);
+
+      const bt = el('button', 'btn ghost sm', '测试连接');
+      bt.onclick = async function () {
+        bt.disabled = true; bt.textContent = '测试中…';
+        try {
+          const r = await fetch('/api/knowledge', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ test: true })
+          }).then(x => x.json());
+          const t = r.result || {};
+          msg.innerHTML = t.ok
+            ? '<span style="color:var(--ok)">✓ 连接成功（' + t.latency_ms + 'ms，返回 ' + (t.sample || []).length + ' 条样本）</span>'
+            : '<span style="color:var(--warn)">✕ ' + esc(t.reason || '失败') + '（' + t.latency_ms + 'ms）</span>';
+        } catch (e) { msg.innerHTML = '<span style="color:var(--bad)">' + esc(e.message) + '</span>'; }
+        bt.disabled = false; bt.textContent = '测试连接';
+      };
+      row.appendChild(bt);
+      kbb.appendChild(sel); kbb.appendChild(ep); kbb.appendChild(aid); kbb.appendChild(ds);
+      kbb.appendChild(row); kbb.appendChild(msg);
+      kbb.appendChild(el('div', 'hint', '⚠ 千帆路径尚未对接真实接口，契约见 docs/接入千帆知识库.md 第三节；字段名不同只需改 engine/knowledge.ps1 的映射。'));
+    }).catch(function () { kbb.innerHTML = '<div class="hint">读不到知识源状态（本地服务未启动？）</div>'; });
+  }
+
   // 自定义禁用表述
   const rb = $('#setRules');
   if (rb) {

@@ -12,6 +12,19 @@
   border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:2147483645;
   box-shadow:-4px 0 20px rgba(31,35,41,.08);font-size:13px;line-height:1.6}
 .panel.hidden{display:none}
+/* ---------- 悬浮小窗模式（可拖动 + 三档缩放）----------
+   停靠模式会把页面挤开，适合长时段盯单；
+   悬浮模式不占页面布局，适合临时查一下、跟别的窗口并排。
+   两种都要有：前者不遮挡内容，后者不打断布局。 */
+.panel.float{left:0;top:0;right:auto;height:auto;border-radius:var(--radius);border:1px solid var(--border);
+  box-shadow:0 12px 40px rgba(31,35,41,.22);overflow:hidden}
+.panel.float .hd{cursor:move}
+.panel.float .hd:active{cursor:grabbing}
+.szbtns{display:flex;gap:3px;flex:0 0 auto}
+.panel:not(.float) .szbtns{display:none}   /* 停靠模式没有尺寸概念 */
+.panel:not(.float) .hd{cursor:default}
+.szbtns .btn{padding:3px 7px;font-size:11px}
+.szbtns .btn.on{background:rgba(255,255,255,.3);border-color:rgba(255,255,255,.5)}
 .hd{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);
   background:linear-gradient(90deg,#1c2b4a,#27407a);color:#fff;flex:0 0 auto}
 .logo{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.16);
@@ -99,22 +112,24 @@
   font-size:9px;font-weight:700;display:grid;place-items:center}
 
 body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{display:flex;gap:22px;align-items:flex-start;justify-content:center}
+.wrap{display:flex;gap:22px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
 .preview-label{font-size:12px;font-weight:700;color:#5b6472;margin:0 0 9px 2px;letter-spacing:.04em}
-.panel{width:392px}
+.hintlabel{font-size:11px;color:#8a919f;margin-top:8px;text-align:center}
 </style></head><body>
 <div class="wrap">
   <div>
     <div class="preview-label">① 首次使用 · 配置 API Key（替代登录界面）</div>
     
-  <div class="panel" style="position:relative;height:760px;border-radius:16px;overflow:hidden;
-       box-shadow:0 10px 40px rgba(31,35,41,.16);border:1px solid #e3e8f3">
+  <div class="panel" style="position:relative;left:0;top:0;right:auto;width:392px;height:700px;
+       border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
     <div class="hd">
       <div class="logo">AI</div>
       <div class="ttl">跨境售后话术助手</div>
+      
+      <button class="btn sm" title="切换悬浮/停靠">⇱</button>
       <button class="btn sm">—</button>
     </div>
-    <div class="bd">
+    <div class="bd" style="height:604px">
 <div class="setup">
   <div class="setup-hero">
     <div class="big">🧵</div>
@@ -156,18 +171,21 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
       <button class="btn sm">⚙</button>
     </div>
   </div>
+  <div class="hintlabel"></div>
   </div>
   <div>
-    <div class="preview-label">② 正常工作 · 浅色面板</div>
+    <div class="preview-label">② 停靠侧栏 · 挤开页面不遮挡</div>
     
-  <div class="panel" style="position:relative;height:760px;border-radius:16px;overflow:hidden;
-       box-shadow:0 10px 40px rgba(31,35,41,.16);border:1px solid #e3e8f3">
+  <div class="panel" style="position:relative;left:0;top:0;right:auto;width:392px;height:700px;
+       border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
     <div class="hd">
       <div class="logo">AI</div>
       <div class="ttl">跨境售后话术助手</div>
+      
+      <button class="btn sm" title="切换悬浮/停靠">⇱</button>
       <button class="btn sm">—</button>
     </div>
-    <div class="bd">
+    <div class="bd" style="height:604px">
 <div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
 <div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。</div>
 <div class="card">
@@ -225,6 +243,79 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
       <button class="btn sm">⚙</button>
     </div>
   </div>
+  <div class="hintlabel"></div>
+  </div>
+  <div>
+    <div class="preview-label">③ 悬浮小窗 · 可拖动 + 三档缩放</div>
+    
+  <div class="panel float" style="position:relative;left:0;top:0;right:auto;width:372px;height:620px;
+       border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
+    <div class="hd">
+      <div class="logo">AI</div>
+      <div class="ttl">跨境售后话术助手</div>
+      <span class="szbtns"><button class="btn sm on">迷你</button><button class="btn sm">标准</button><button class="btn sm">最大</button></span>
+      <button class="btn sm" title="切换悬浮/停靠">⇱</button>
+      <button class="btn sm">—</button>
+    </div>
+    <div class="bd" style="height:524px">
+<div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
+<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。</div>
+<div class="card">
+  <div class="sec">操作</div>
+  <div class="row">
+    <button class="btn pri">读取并生成话术</button>
+    <button class="btn">▶ 自动监听</button>
+    <button class="btn sm">↻</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <select class="sel" style="flex:1"><option>西班牙</option></select>
+    <select class="sel" style="flex:1"><option>英文</option></select>
+  </div>
+</div>
+<div class="card">
+  <div class="sec">当前平台</div>
+  <div class="kv"><span>适配器</span><span>通用（自动识别）</span></div>
+  <div class="kv"><span>消息区识别</span><span>启发式自动识别</span></div>
+  <div class="kv"><span>读取到</span><span>8 条消息</span></div>
+</div>
+<div class="card">
+  <div class="sec">意图 / 情绪 / 紧急度</div>
+  <div><span class="pill i">质量投诉 96%</span></div>
+  <div class="kv"><span>情绪</span><span>negative / 强度 4</span></div>
+  <div class="kv"><span>紧急度</span><span><span style="color:#e5484d">critical</span></span></div>
+  <div class="kv"><span>知识覆盖</span><span>sufficient</span></div>
+  <div><span class="pill r">平台介入风险</span></div>
+</div>
+<div class="card">
+  <div class="sec">政策依据（1 条）</div>
+  <div class="ev">
+    <div class="evt">西班牙商品瑕疵救济顺位</div>
+    <div class="evs">买方主张瑕疵救济时，商家应先修理或更换；不能履行时可要求减价或解除合同。</div>
+    <div class="evm">ES-TRLGDCU-118 · ES · 生效 2014-03-27 · 匹配 0.87</div>
+  </div>
+</div>
+<div class="sec" style="margin:2px 0 8px">候选话术（3 条）</div>
+<div class="cand rec">
+  <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
+  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
+  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
+  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button></div>
+</div>
+<div class="cand">
+  <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
+  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us…</div>
+  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
+  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>命中：<b>退款</b><br>建议：补充"14 天内可无理由退货"的说明</div>
+</div></div>
+    <div class="ft">
+      <span class="dot on"></span>
+      <span class="tiny">已连接</span>
+      <span style="flex:1"></span>
+      <button class="btn sm">🔑</button>
+      <button class="btn sm">⚙</button>
+    </div>
+  </div>
+  <div class="hintlabel">拖住标题栏可移动 · 停靠模式无尺寸按钮</div>
   </div>
 </div>
 </body></html>

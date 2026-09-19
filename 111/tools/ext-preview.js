@@ -28,16 +28,29 @@ const css = src.slice(i + startMark.length, j);
 // Shadow DOM 里的 :host 在预览页换成 :root 才有意义
 const pageCss = css.replace(':host{', ':root{').replace('all:initial;', '');
 
-function panel(bodyHtml, footerRight, title) {
+function panel(bodyHtml, opts) {
+  opts = opts || {};
+  const cls = 'panel' + (opts.float ? ' float' : '');
+  const h = opts.height || (opts.float ? 620 : 760);
+  const w = opts.width || 392;
+  const sizes = opts.float
+    ? '<span class="szbtns">' +
+        '<button class="btn sm on">迷你</button>' +
+        '<button class="btn sm">标准</button>' +
+        '<button class="btn sm">最大</button>' +
+      '</span>'
+    : '';
   return `
-  <div class="panel" style="position:relative;height:760px;border-radius:16px;overflow:hidden;
-       box-shadow:0 10px 40px rgba(31,35,41,.16);border:1px solid #e3e8f3">
+  <div class="${cls}" style="position:relative;left:0;top:0;right:auto;width:${w}px;height:${h}px;
+       border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
     <div class="hd">
       <div class="logo">AI</div>
-      <div class="ttl">${title}</div>
+      <div class="ttl">跨境售后话术助手</div>
+      ${sizes}
+      <button class="btn sm" title="切换悬浮/停靠">⇱</button>
       <button class="btn sm">—</button>
     </div>
-    <div class="bd">${bodyHtml}</div>
+    <div class="bd" style="height:${h - 96}px">${bodyHtml}</div>
     <div class="ft">
       <span class="dot on"></span>
       <span class="tiny">已连接</span>
@@ -45,7 +58,8 @@ function panel(bodyHtml, footerRight, title) {
       <button class="btn sm">🔑</button>
       <button class="btn sm">⚙</button>
     </div>
-  </div>`;
+  </div>
+  <div class="hintlabel">${opts.label || ''}</div>`;
 }
 
 /* ---------------- 视图 1：首次配置（替代登录） ---------------- */
@@ -141,18 +155,22 @@ const html = `<!DOCTYPE html>
 <style>
 ${pageCss}
 body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
-.wrap{display:flex;gap:22px;align-items:flex-start;justify-content:center}
+.wrap{display:flex;gap:22px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
 .preview-label{font-size:12px;font-weight:700;color:#5b6472;margin:0 0 9px 2px;letter-spacing:.04em}
-.panel{width:392px}
+.hintlabel{font-size:11px;color:#8a919f;margin-top:8px;text-align:center}
 </style></head><body>
 <div class="wrap">
   <div>
     <div class="preview-label">① 首次使用 · 配置 API Key（替代登录界面）</div>
-    ${panel(setupView, '', '跨境售后话术助手')}
+    ${panel(setupView, { height: 700 })}
   </div>
   <div>
-    <div class="preview-label">② 正常工作 · 浅色面板</div>
-    ${panel(mainView, '', '跨境售后话术助手')}
+    <div class="preview-label">② 停靠侧栏 · 挤开页面不遮挡</div>
+    ${panel(mainView, { height: 700 })}
+  </div>
+  <div>
+    <div class="preview-label">③ 悬浮小窗 · 可拖动 + 三档缩放</div>
+    ${panel(mainView, { float: true, width: 372, height: 620, label: '拖住标题栏可移动 · 停靠模式无尺寸按钮' })}
   </div>
 </div>
 </body></html>`;

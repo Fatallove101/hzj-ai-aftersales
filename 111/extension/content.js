@@ -22,6 +22,10 @@
     messages: [],
     lastText: '',
     lastSource: '',
+    readNote: '',
+    uiMode: 'dock',        // dock=挤开页面  float=悬浮可拖动
+    uiSize: 'normal',
+    pos: { x: -1, y: -1 },
     lastResult: null,
     serverOk: false,
     lastError: '',
@@ -41,9 +45,131 @@
   };
 
   const PANEL_W = 392;
+
+  /* ---------------- 悬浮小窗：三档尺寸 + 位置记忆 ----------------
+     尺寸与位置按【站点】分别记忆：客服后台和别的网站的合适位置不一样。 */
+  const SIZES = {
+    mini:   { w: 330, h: 430, label: '迷你' },
+    normal: { w: 392, h: 720, label: '标准' },
+    max:    { w: 600, h: 0,   label: '最大' }   // h=0 → 撑满窗口高度
+  };
+
+  function loadUiPrefs(cb) {
+    try {
+      chrome.storage.local.get(UI_KEY, function (r) {
+        const v = r && r[UI_KEY];
+        if (v) {
+          if (v.mode === 'float' || v.mode === 'dock') state.uiMode = v.mode;
+          if (SIZES[v.size]) state.uiSize = v.size;
+          if (typeof v.x === 'number' && typeof v.y === 'number') { state.pos.x = v.x; state.pos.y = v.y; }
+        }
+        cb && cb();
+      });
+    } catch (e) { cb && cb(); }
+  }
+
+  function saveUiPrefs() {
+    try {
+      const o = {};
+      o[UI_KEY] = { mode: state.uiMode, size: state.uiSize, x: state.pos.x, y: state.pos.y };
+      chrome.storage.local.set(o);
+    } catch (e) { }
+  }
+
+  // 把当前 uiMode / uiSize / pos 应用到面板上
+  function applyUi() {
+    if (!panel) return;
+    const sz = SIZES[state.uiSize] || SIZES.normal;
+    const html = document.documentElement;
+    if (state.uiMode === 'float') {
+      panel.classList.add('float');
+      panel.style.width = sz.w + 'px';
+      panel.style.height = (sz.h ? sz.h : Math.max(320, window.innerHeight - 40)) + 'px';
+      if (state.pos.x < 0) state.pos.x = Math.max(8, window.innerWidth - sz.w - 24);
+      if (state.pos.y < 0) state.pos.y = 12;
+      const maxX = Math.max(8, window.innerWidth - sz.w - 8);
+      const maxY = Math.max(8, window.innerHeight - 120);
+      state.pos.x = Math.min(state.pos.x, maxX);
+      state.pos.y = Math.min(state.pos.y, maxY);
+      panel.style.left = state.pos.x + 'px';
+      panel.style.top = state.pos.y + 'px';
+      // 悬浮模式不挤页面
+      if (state._prevMargin === undefined) state._prevMargin = html.style.marginRight || '';
+      html.style.marginRight = state._prevMargin || '';
+      html.style.overflowX = '';
+    } else {
+      panel.classList.remove('float');
+      panel.style.left = ''; panel.style.top = '';
+      panel.style.width = ''; panel.style.height = '';
+      if (state.visible) {
+        if (state._prevMargin === undefined) state._prevMargin = html.style.marginRight || '';
+        html.style.transition = 'margin-right .18s ease';
+        html.style.marginRight = PANEL_W + 'px';
+        html.style.overflowX = 'hidden';
+      }
+    }
+    // 同步按钮选中态
+    if (shadow) {
+      shadow.querySelectorAll('[data-size]').forEach(function (b) {
+        b.classList.toggle('on', b.getAttribute('data-size') === state.uiSize);
+      });
+    }
+  }
+
+  function setUiMode(mode) {
+    state.uiMode = mode;
+    if (mode === 'float' && !state.pos) state.pos = { x: -1, y: -1 };
+    if (mode === 'float' && (state.pos.x < 0 || state.pos.y < 0)) {
+      const sz = SIZES[state.uiSize] || SIZES.normal;
+      state.pos.x = Math.max(8, window.innerWidth - sz.w - 24);
+      state.pos.y = 12;
+    }
+    applyUi(); saveUiPrefs();
+  }
+
+  function setUiSize(name) {
+    if (!SIZES[name]) return;
+    state.uiSize = name;
+    applyUi(); saveUiPrefs();
+  }
+
+  // 拖动标题栏移动小窗（仅悬浮模式）
+  function makeDraggable(handle) {
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    handle.addEventListener('mousedown', function (e) {
+      if (state.uiMode !== 'float') return;
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+      dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      const r = panel.getBoundingClientRect();
+      ox = r.left; oy = r.top;
+      e.preventDefault();
+      document.addEventListener('mousemove', onMove, true);
+      document.addEventListener('mouseup', onUp, true);
+    });
+    function onMove(e) {
+      if (!dragging) return;
+      const sz = SIZES[state.uiSize] || SIZES.normal;
+      let nx = ox + (e.clientX - sx);
+      let ny = oy + (e.clientY - sy);
+      nx = Math.max(0, Math.min(nx, window.innerWidth - Math.min(sz.w, window.innerWidth) - 4));
+      ny = Math.max(0, Math.min(ny, window.innerHeight - 60));
+      state.pos.x = nx; state.pos.y = ny;
+      panel.style.left = nx + 'px';
+      panel.style.top = ny + 'px';
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('mouseup', onUp, true);
+      saveUiPrefs();
+    }
+  }
   const SERVER_URL = 'http://127.0.0.1:8799';   // 与 background.js 的 SERVER 保持一致，界面上会显示出来便于排查
   const HOST = location.hostname;
   const STORE_KEY = 'site:' + HOST;
+  const UI_KEY = 'ui:' + HOST;   // 必须放在 HOST 之后（TDZ：const 不提升）
 
   /* ---------------- 小工具 ---------------- */
   function h(tag, props, children) {
@@ -85,6 +211,19 @@
   border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:2147483645;
   box-shadow:-4px 0 20px rgba(31,35,41,.08);font-size:13px;line-height:1.6}
 .panel.hidden{display:none}
+/* ---------- 悬浮小窗模式（可拖动 + 三档缩放）----------
+   停靠模式会把页面挤开，适合长时段盯单；
+   悬浮模式不占页面布局，适合临时查一下、跟别的窗口并排。
+   两种都要有：前者不遮挡内容，后者不打断布局。 */
+.panel.float{left:0;top:0;right:auto;height:auto;border-radius:var(--radius);border:1px solid var(--border);
+  box-shadow:0 12px 40px rgba(31,35,41,.22);overflow:hidden}
+.panel.float .hd{cursor:move}
+.panel.float .hd:active{cursor:grabbing}
+.szbtns{display:flex;gap:3px;flex:0 0 auto}
+.panel:not(.float) .szbtns{display:none}   /* 停靠模式没有尺寸概念 */
+.panel:not(.float) .hd{cursor:default}
+.szbtns .btn{padding:3px 7px;font-size:11px}
+.szbtns .btn.on{background:rgba(255,255,255,.3);border-color:rgba(255,255,255,.5)}
 .hd{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);
   background:linear-gradient(90deg,#1c2b4a,#27407a);color:#fff;flex:0 0 auto}
 .logo{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.16);
@@ -187,11 +326,29 @@
     shadow.appendChild(style);
 
     panel = h('div', { class: 'panel' });
+    // 标题栏：停靠模式下当普通标题，悬浮模式下当拖动把手
+    const szWrap = h('div', { class: 'szbtns' });
+    ['mini', 'normal', 'max'].forEach(function (k) {
+      szWrap.appendChild(h('button', {
+        class: 'btn sm', 'data-size': k, text: SIZES[k].label,
+        title: SIZES[k].label + '（' + SIZES[k].w + 'px 宽）',
+        onclick: () => setUiSize(k)
+      }));
+    });
+    const btnMode = h('button', {
+      class: 'btn sm', text: '⇱', title: '切换「悬浮小窗 / 停靠侧栏」',
+      onclick: () => {
+        setUiMode(state.uiMode === 'float' ? 'dock' : 'float');
+        toast(state.uiMode === 'float' ? '已切换为悬浮小窗（可拖动）' : '已切换为侧栏（挤开页面）');
+      }
+    });
     const hd = h('div', { class: 'hd' }, [
       h('div', { class: 'logo', text: 'AI' }),
       h('div', { class: 'ttl', text: '跨境售后话术助手' }),
+      szWrap, btnMode,
       h('button', { class: 'btn sm', text: '—', title: '收起', onclick: () => setVisible(false) })
     ]);
+    makeDraggable(hd);
     body = h('div', { class: 'bd' });
     const ft = h('div', { class: 'ft' }, [
       h('span', { class: 'dot off', id: 'st' }),
@@ -214,20 +371,17 @@
     state.visible = v;
     panel.classList.toggle('hidden', !v);
     fab.classList.toggle('hidden', v);
-    // 把宿主页面往左挤，避免侧边栏盖住内容。
-    // 纯 fixed 覆盖会挡住页面主体，坐席就没法一边看对话一边看话术了。
+    // 停靠模式把页面往左挤（避免遮挡）；悬浮模式不占页面布局。
+    // 两种模式的差异都收在 applyUi 里，这里只负责还原。
     try {
       const html = document.documentElement;
       if (v) {
-        if (state._prevMargin === undefined) state._prevMargin = html.style.marginRight || '';
-        html.style.transition = 'margin-right .18s ease';
-        html.style.marginRight = PANEL_W + 'px';
-        html.style.overflowX = 'hidden';
+        applyUi();
       } else {
         html.style.marginRight = state._prevMargin || '';
         html.style.overflowX = '';
       }
-    } catch (e) { /* 个别页面可能不允许改根元素，忽略即可 */ }
+    } catch (e) { /* 个别页面不允许改根元素，忽略 */ }
   }
 
   function setStatus(ok, text) {
@@ -565,7 +719,12 @@
       body.appendChild(cc);
     }
 
-    // 政策依据（这是"符合当地政策"的核心体现，扩展之前完全没展示）
+    // 读取状态说明：读到 0 条 / 用的是上次结果，都要明说
+    if (state.readNote) {
+      body.appendChild(h('div', { class: 'banner warn', text: 'ℹ ' + state.readNote }));
+    }
+
+    // 政策依据（这是"符合当地政策"的核心体现）
     const evs = (r.retrieval && r.retrieval.evidence) || [];
     if (evs.length) {
       const ce = h('div', { class: 'card' }, [h('div', { class: 'sec', text: '政策依据（' + evs.length + ' 条）' })]);
@@ -729,6 +888,7 @@
     state.serverOk = true;
     state.lastText = text;
     state.lastSource = sourceLabel || '页面读取';
+    state.readNote = '';   // 有新结果就清掉上一次的提示
     state.lastResult = res.data.result;
     setStatus(true, '已连接');
     setVisible(true);
@@ -739,10 +899,21 @@
     if (state.busy) return;
     const r = readOnce();
     if (!r.messages.length) {
-      toast('没读到对话，请用 ⚙ 拾取消息区', true);
+      // 读到 0 条时不能默默把旧结果留在界面上 ——
+      // 那样会出现"显示着话术、却写着消息 0 条"的矛盾状态，用户完全看不懂。
+      // 明确标出这是上一次的结果，并写清来源。
+      if (state.lastResult) {
+        state.readNote = '本页面未识别到对话列表 —— 下方话术来自上一次分析（' +
+          (state.lastSource || '未知来源') + '），不是当前页面的内容。';
+        toast('未读到对话，下方是上次结果', false);
+      } else {
+        state.readNote = '没读到对话。请用底部 ⚙ 拾取消息区，或在页面上选中买家的话用「分析选中」。';
+        toast('没读到对话，请用 ⚙ 拾取消息区', true);
+      }
       render();
       return;
     }
+    state.readNote = '';
     const text = AIH.messagesToText(state.messages, 20);
     // 发送前先自检：文本为空就别浪费一次请求（服务端会回 400 "text 不能为空"）
     if (!text || !text.trim()) {
@@ -828,6 +999,7 @@
   }, true);
   document.addEventListener('scroll', hideSelBtn, true);
   window.addEventListener('resize', hideSelBtn, true);
+  window.addEventListener('resize', function () { if (state.uiMode === 'float') applyUi(); }, true);
 
   function startWatch() {
     if (state.watching) return;
@@ -973,6 +1145,9 @@
       );
     }
 
+    // 读取小窗形态偏好（按站点记忆）
+    await new Promise(function (res) { loadUiPrefs(res); });
+
     state.adapter = AIH.Adapters.detect();
     // 平台默认值
     if (state.adapter.id === 'tiktok_shop') state.platform = 'tiktok_shop';
@@ -1009,6 +1184,8 @@
     setInterval(() => {
       if (location.href !== lastUrl) {
         lastUrl = location.href;
+        // 注意：这里在 setInterval 回调里（非 async），不能 await。
+        // 形态偏好很少变，SPA 切路由时不必重读。
         state.adapter = AIH.Adapters.detect();
         state.selectors = AIH.Adapters.resolveSelectors(state.adapter, state.overrides);
         state.lastText = '';

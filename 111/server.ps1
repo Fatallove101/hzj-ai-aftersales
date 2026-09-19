@@ -51,6 +51,7 @@ function Write-ReqLog {
 . (Join-Path $Root 'engine\skills.ps1')
 . (Join-Path $Root 'engine\pipeline.ps1')
 . (Join-Path $Root 'engine\metrics.ps1')
+. (Join-Path $Root 'engine\knowledge.ps1')
 
 Write-Host ""
 Write-Host "==============================================================" -ForegroundColor Cyan
@@ -62,6 +63,9 @@ Write-Host ("  知识库加载完成：合规规则 {0} 条 / 术语 {1} 条 / �
   $counts.compliance_rules, $counts.glossary, $counts.policy_index, $counts.intent_taxonomy) -ForegroundColor Green
 
 $llmInfo = Initialize-Llm -Root $Root
+
+# 知识源（本地 CSV / 千帆知识库，可插拔）
+Initialize-Knowledge -Root $Root
 
 # 技能：扫描 skills\*.md
 $skillCount = Initialize-Skills -Dir (Join-Path $Root 'skills')
@@ -388,6 +392,34 @@ function Handle-Request {
       }
     }
     Send-Json -Stream $Stream -Object @{ ok = $true; count = $rows.Count; entries = @($rows) }
+    return
+  }
+
+  # 知识源状态与连通性测试
+  if ($path -eq '/api/knowledge' -and $Request.method -eq 'GET') {
+    Send-Json -Stream $Stream -Object @{ ok = $true; knowledge = (Get-KnowledgeProviderInfo) }
+    return
+  }
+  if ($path -eq '/api/knowledge' -and $Request.method -eq 'POST') {
+    $b = Get-BodyJson -Request $Request
+    if ($null -eq $b) { Send-Json -Stream $Stream -Object @{ ok=$false; error='请求体不是合法 JSON' } -Status 400; return }
+    $names = @($b.PSObject.Properties.Name)
+    if ($names -contains 'test') {
+      Send-Json -Stream $Stream -Object @{ ok = $true; result = (Test-KnowledgeConnection) }
+      return
+    }
+    # 注意：构造 $vals 也要放进 try —— 放在外面一旦抛异常，
+    # 外层只会回一个空的 500，排查时看不到任何原因。
+    try {
+      $vals = @{}
+      foreach ($kk in @('provider','qianfan_endpoint','qianfan_app_id','qianfan_dataset','qianfan_token','fallback_local')) {
+        if ($names -contains $kk) { $vals[$kk] = $b.$kk }
+      }
+      [void](Set-KnowledgeConfig -Values $vals)
+      Send-Json -Stream $Stream -Object @{ ok = $true; knowledge = (Get-KnowledgeProviderInfo) }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok = $false; error = $_.Exception.Message; detail = $_.ScriptStackTrace } -Status 500
+    }
     return
   }
 

@@ -197,7 +197,13 @@ function Invoke-Retrieval {
     'invoice'         { $kw = @('退货','消费者') }
     default           { $kw = @('退货','消费者') }
   }
-  $evidence = @(Search-PolicyIndex -Country $Country -Platform $Platform -Keywords $kw -Top 4)
+  # 走可插拔知识源：本地 CSV 或千帆知识库（由 config.local.json 的 knowledge.provider 决定）。
+  # 降级时会带回 degraded / degrade_reason，最终写进 meta 让界面能显示出来。
+  $kbRes = Search-Knowledge -Country $Country -Platform $Platform -Keywords $kw -TopK 4
+  $evidence = @($kbRes.evidence)
+  $script:LastKbProvider = $kbRes.provider
+  $script:LastKbDegraded = $kbRes.degraded
+  $script:LastKbReason   = $kbRes.degrade_reason
 
   $hasPolicy = @($evidence | Where-Object { $_.doc_id -like 'EU-*' -or $_.doc_id -like 'DE-*' -or $_.doc_id -like 'FR-*' -or $_.doc_id -like 'ES-*' -or $_.doc_id -like 'GB-*' -or $_.doc_id -like 'US-*' -or $_.doc_id -like 'IT-*' -or $_.doc_id -like 'KID-*' }).Count -gt 0
   $coverage = 'insufficient'
@@ -714,6 +720,9 @@ function Invoke-Pipeline {
       model_used     = $modelUsed
       skills         = @($skillNames)
       composed_prompt_chars = $composedPrompt.Length
+      kb_provider    = $script:LastKbProvider
+      kb_degraded    = [bool]$script:LastKbDegraded
+      kb_degrade_reason = $script:LastKbReason
       skills_detail  = @($matchedSkills)
       degraded_nodes = @(
         if ($lang -ne 'zh' -and -not $modelTranslation) { 'translate_agent（未接入，本地术语命中）' }
