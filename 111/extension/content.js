@@ -23,6 +23,8 @@
     lastText: '',
     lastSource: '',
     readNote: '',
+    view: 'main',          // main | setup | windows | picker
+    viewStack: [],
     src: 'dom',
     folds: {},
     ocrInfo: null,
@@ -34,7 +36,6 @@
     lastError: '',
     serverMsg: '',
     // 模型配置界面（首次使用时要输入自己的 API Key，替代传统"登录"）
-    setupMode: false,
     setupFirstRun: false,
     model: null,
     watching: false,
@@ -383,9 +384,12 @@
       h('span', { class: 'dot off', id: 'st' }),
       h('span', { class: 'tiny', id: 'stt', text: '未连接' }),
       h('span', { style: 'flex:1' }),
+      // 固定位置的返回按钮：只在子页面出现，位置永远不变
+      h('button', { class: 'btn sm hidden', id: 'btnBack', text: '←', title: '返回上一级（Esc）',
+        onclick: () => popView() }),
       h('button', { class: 'btn sm', text: '🔑', title: '模型 / API Key 设置',
-        onclick: () => { state.setupMode = true; state.setupFirstRun = false; render(); } }),
-      h('button', { class: 'btn sm', text: '⚙', title: '重新拾取选择器', onclick: () => openPickerMenu() })
+        onclick: () => pushView('setup') }),
+      h('button', { class: 'btn sm', text: '⚙', title: '重新拾取选择器', onclick: () => pushView('picker') })
     ]);
     ft.querySelector('#st').id = 'st';
     ft.querySelector('#stt').id = 'stt';
@@ -441,6 +445,41 @@
   const COUNTRY_ZH = { UNKNOWN: '未知', ES: '西班牙', DE: '德国', FR: '法国', IT: '意大利', US: '美国', GB: '英国', NL: '荷兰', EU: '欧盟' };
   const ESC_ZH = { supervisor_required: '技能策略要求主管介入', critical_urgency: '紧急度极高', escalated_emotion: '情绪失控', high_value_dispute: '高价值纠纷', insufficient_knowledge: '知识库无依据', all_candidates_rejected: '全部候选被拦截', platform_risk: '平台/拒付风险', legal_risk: '法律风险', customer_request: '客户要求转人工', low_acceptance: '连续未采纳', degraded_pipeline: '链路降级' };
   const RISK_ZH = { chargeback_risk: '拒付风险', platform_intervention_risk: '平台介入风险', legal_risk: '法律风险', public_opinion_risk: '舆情风险', repeat_complaint: '重复投诉', minor_involved: '涉未成年人' };
+
+  /* ---------------- 子页面导航 ----------------
+     所有子页面（模型设置 / 拾取选择器 / 选窗口）都进同一个栈，
+     页脚固定位置永远有「← 返回」。
+
+     为什么要这样：之前返回按钮散落在各个子页面内部（表单里、列表下面），
+     用户每次都得先找它在哪 —— 这是直接收到的反馈。固定在页脚后，
+     位置永远不变，肌肉记忆就建立了。Esc 也能返回。 */
+  function pushView(v) {
+    if (state.view !== v) state.viewStack.push(state.view);
+    state.view = v;
+    syncBackBtn();
+    render(); renderFooterButtons();
+  }
+
+  function popView() {
+    state.view = state.viewStack.length ? state.viewStack.pop() : 'main';
+    syncBackBtn();
+    render(); renderFooterButtons();
+  }
+
+  function resetView() {
+    state.view = 'main';
+    state.viewStack = [];
+    syncBackBtn();
+  }
+
+  function syncBackBtn() {
+    if (!shadow) return;
+    const b = shadow.querySelector('#btnBack');
+    if (b) {
+      b.classList.toggle('hidden', state.view === 'main');
+      b.title = '返回上一级（Esc）';
+    }
+  }
 
   /* ---------------- 可折叠区块 ----------------
      除候选话术外的所有卡片都收进折叠区，默认收起，状态按站点记忆。 */
@@ -585,6 +624,7 @@
   }
 
   async function showWindowPicker() {
+    state.view = 'windows'; state.viewStack = ['main']; syncBackBtn();
     state.busy = true; render();
     const res = await msg('windows');
     state.busy = false;
@@ -593,8 +633,6 @@
     body.appendChild(h('div', { class: 'banner warn', text: '选择一个要读取的窗口。列表里是当前所有可见窗口。' }));
     if (!wins.length) {
       body.appendChild(h('div', { class: 'empty', text: '没取到窗口列表' }));
-      const b = h('button', { class: 'btn', text: '返回', onclick: function () { state.src = 'dom'; render(); } });
-      body.appendChild(b);
       return;
     }
     const box = h('div', { class: 'winpick' });
@@ -606,7 +644,6 @@
       box.appendChild(row);
     });
     body.appendChild(box);
-    body.appendChild(h('button', { class: 'btn', text: '返回', onclick: function () { state.src = 'dom'; render(); } }));
   }
 
   async function readWindow(w) {
@@ -720,9 +757,7 @@
 
     const row = h('div', { class: 'row' }, [btn]);
     if (!first) {
-      const back = h('button', { class: 'btn', text: '返回' });
-      back.onclick = () => { state.setupMode = false; render(); renderFooterButtons(); };
-      row.appendChild(back);
+      // 「返回」统一放页脚固定位置，这里不再重复放一个，避免两个返回按钮
       const clr = h('button', { class: 'btn dan', text: '清除 Key' });
       clr.onclick = async () => {
         clr.disabled = true;
@@ -792,7 +827,7 @@
 
     if (state.setupFirstRun) {
       state.setupFirstRun = false;
-      state.setupMode = false;
+      resetView();
       render();
       renderFooterButtons();
       toast('配置完成，开始使用');
@@ -805,7 +840,7 @@
   function renderInner() {
     // 模型未配置（或用户主动打开设置）→ 进配置界面。
     // 这就是传统"登录界面"的替代：没有账号密码，只有自己的 API Key。
-    if (state.setupMode) { renderSetup(); return; }
+    if (state.view === 'setup') { renderSetup(); return; }
 
     // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
@@ -1075,8 +1110,7 @@
     if (!text) return;
 
     state.busy = true;
-    state.setupMode = false;      // 从选中分析进来时自动退出配置界面
-    state.setupFirstRun = false;
+    resetView();                  // 从选中分析进来时自动退出子页面
     render();
 
     const res = await msg('analyze', { text: text, country: state.country, platform: state.platform, category: 'unknown' });
@@ -1205,6 +1239,14 @@
   }, true);
   document.addEventListener('scroll', hideSelBtn, true);
   window.addEventListener('resize', hideSelBtn, true);
+
+  // Esc 返回上一级 —— 和页脚「←」等价，习惯哪个用哪个
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (state.view === 'main') return;
+    e.preventDefault(); e.stopPropagation();
+    popView();
+  }, true);
   window.addEventListener('resize', function () { if (state.uiMode === 'float') applyUi(); }, true);
 
   function startWatch() {
@@ -1230,6 +1272,12 @@
 
   function renderFooterButtons() {
     let bar = shadow.querySelector('#actbar');
+    // 子页面（模型设置 / 选窗口 / 拾取选择器）不显示"读取源 + 操作"条 ——
+    // 那是主视图的东西，摆在设置表单上面只会让人困惑。
+    if (state.view !== 'main') {
+      if (bar) bar.remove();
+      return;
+    }
     if (!bar) {
       bar = h('div', { id: 'actbar', class: 'card' });
       body.insertBefore(bar, body.firstChild);
@@ -1264,6 +1312,7 @@
 
   /* ---------------- 选择器拾取 ---------------- */
   function openPickerMenu() {
+    state.view = 'picker'; state.viewStack = ['main']; syncBackBtn();
     const items = [
       { key: 'messageList', label: '① 拾取「消息区」容器', mode: 'list',
         help: '点一下整个对话列表所在的区域（一大块包含很多条消息的容器）' },
@@ -1378,8 +1427,10 @@
     // 没配 API Key → 视为首次使用，直接进配置界面（替代登录）。
     // 不强制：用户也可以关掉它用本地规则引擎，所以只提示不阻断。
     if (state.serverOk && state.model && !state.model.has_key) {
-      state.setupMode = true;
+      state.view = 'setup';
+      state.viewStack = ['main'];
       state.setupFirstRun = true;
+      syncBackBtn();
     }
 
     render();
@@ -1387,7 +1438,7 @@
     setVisible(true);
 
     // 首次自动读一次（配置界面下不需要）
-    setTimeout(() => { if (state.serverOk && !state.setupMode) analyze(); }, 600);
+    setTimeout(() => { if (state.serverOk && state.view === 'main') analyze(); }, 600);
 
     // 监听 URL 变化（SPA 路由切换）
     let lastUrl = location.href;

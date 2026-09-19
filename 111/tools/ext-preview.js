@@ -55,6 +55,7 @@ function panel(bodyHtml, opts) {
       <span class="dot on"></span>
       <span class="tiny">已连接</span>
       <span style="flex:1"></span>
+      ${opts.subView ? '<button class="btn sm" title="返回上一级（Esc）">←</button>' : ''}
       <button class="btn sm">🔑</button>
       <button class="btn sm">⚙</button>
     </div>
@@ -156,8 +157,8 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
 </style></head><body>
 <div class="wrap">
   <div>
-    <div class="preview-label">① 首次使用 · 配置 API Key（替代登录界面）</div>
-    ${panel(setupView, { height: 700 })}
+    <div class="preview-label">① 子页面 · 配置 API Key（页脚固定「← 返回」）</div>
+    ${panel(setupView, { height: 700, subView: true, label: '子页面也隐藏了"读取源/操作"条；页脚「←」位置固定，Esc 同样可返回' })}
   </div>
   <div>
     <div class="preview-label">② 停靠侧栏 · 挤开页面不遮挡</div>

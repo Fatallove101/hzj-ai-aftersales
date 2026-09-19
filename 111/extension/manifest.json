@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "跨境售后 AI 话术助手",
-  "version": "0.22.0",
+  "version": "0.23.1",
   "description": "在客服后台侧边栏读取对话，生成候选话术并一键插入输入框。配合本地服务 (127.0.0.1:8799) 使用。",
 
   "permissions": ["storage", "activeTab", "scripting"],
