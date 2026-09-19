@@ -424,8 +424,8 @@
         onclick: () => pushView('setup') }),
       h('button', { class: 'btn sm', text: '⚙', title: '重新拾取选择器', onclick: () => pushView('picker') })
     ]);
-    ft.querySelector('#st').id = 'st';
-    ft.querySelector('#stt').id = 'stt';
+    // （原来这里还有两行 ft.querySelector('#st').id = 'st' —— 纯多余，
+    //   h() 里的 id 已经通过 setAttribute 设好了，删掉）
     panel.appendChild(hd); panel.appendChild(body); panel.appendChild(ft);
     shadow.appendChild(panel);
 
@@ -686,6 +686,11 @@
 
   /* ---------------- 三个可滚动框 ---------------- */
   function buildPanes() {
+    // ⚠️ 必须有这个外层容器，并且必须作为 root 返回。
+    //    之前漏了 root —— renderInner 里 body.appendChild(panes.root) 拿到 undefined，
+    //    报 "parameter 1 is not of type 'Node'"（用户在浏览器里直接撞到）。
+    const root = h('div', { class: 'panes' });
+
     function mk(id, title, extra) {
       const p = h('div', { class: 'pane', id: id });
       const hd = h('div', { class: 'pane-hd' });
@@ -693,9 +698,11 @@
       if (extra) hd.appendChild(extra);
       const bd = h('div', { class: 'pane-bd' });
       p.appendChild(hd); p.appendChild(bd);
+      root.appendChild(p);                 // 挂进容器
       return { root: p, hd: hd, bd: bd };
     }
-    // ① 客户对话：读取源按钮 + 分析按钮都放在这个框的标题栏里
+
+    // ① 客户对话：读取源按钮 + 分析按钮都在这个框的标题栏里
     const chat = mk('paneChat', '客户对话', h('span', { class: 'pn', id: 'chatCount', text: '' }));
     const ctl = h('div', { id: 'chatHdCtl', style: 'flex:1 0 100%;margin-top:6px' });
     chat.hd.appendChild(ctl);
@@ -703,7 +710,8 @@
     const cands = mk('paneCands', '候选话术', h('span', { class: 'pn', id: 'candCount', text: '' }));
     // ③ 详情：包住所有折叠卡片
     const detail = mk('paneDetail', '详情', h('span', { class: 'pn', text: '点标题展开' }));
-    return { chat: chat, cands: cands, detail: detail, ctl: ctl };
+
+    return { root: root, chat: chat, cands: cands, detail: detail, ctl: ctl };
   }
 
   /* 客户对话内容：分说话人气泡 + 中文对照
@@ -711,8 +719,9 @@
      接入千帆后 translation.translated_text 会有整段中文译文。 */
   const SPEAKER_ZH = { buyer: '客户', bot: 'AI客服', human: '人工客服' };
 
-  function buildChatPane(bd, tr) {
+  function buildChatPane(bd, tr, note) {
     bd.innerHTML = '';
+    if (note) bd.appendChild(h('div', { class: 'banner warn', text: 'ℹ ' + note }));
     const msgs = state.messages || [];
 
     if (!msgs.length) {
@@ -1565,6 +1574,19 @@
     if (m && m.type === 'toggle') setVisible(!state.visible);
   });
 
+  /* 测试钩子。
+     只为 tools/test-extension-load.js 做「渲染冒烟测试」而暴露 ——
+     不参与任何业务逻辑，也不影响正常使用。
+     为什么不靠 boot() 驱动测试：boot() 是 async，内部有 await 链，
+     在打桩环境里很容易"什么都没跑就静默通过"（我在这上面栽过）。
+     直接调用 buildPanel + render 才是确定性可测的。 */
+  AIH.__test = {
+    buildPanel: buildPanel,
+    render: render,
+    renderFooterButtons: renderFooterButtons,
+    buildPanes: buildPanes,
+    state: state
+  };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

@@ -36,22 +36,62 @@ function makeEl(tag) {
     children: [], parentElement: null, firstChild: null,
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     setAttribute() {}, getAttribute() { return null; },
-    appendChild(c) { this.children.push(c); this.firstChild = this.children[0]; return c; },
-    insertBefore(c) { this.children.unshift(c); this.firstChild = this.children[0]; return c; },
+    appendChild(c) {
+      // 严格模拟真实 DOM：传 null/undefined 会抛错。
+      // 之前这里是 `this.children.push(c)` 无脑收下，于是
+      // `body.appendChild(panes.root)` 里 root 为 undefined 这种错**测不出来** ——
+      // 结果是用户在浏览器里撞到 "parameter 1 is not of type 'Node'"。
+      if (!c || typeof c !== 'object') {
+        throw new TypeError("Failed to execute 'appendChild': parameter 1 is not of type 'Node'.");
+      }
+      this.children.push(c); this.firstChild = this.children[0]; return c;
+    },
+    insertBefore(c) {
+      if (!c || typeof c !== 'object') {
+        throw new TypeError("Failed to execute 'insertBefore': parameter 1 is not of type 'Node'.");
+      }
+      this.children.unshift(c); this.firstChild = this.children[0]; return c;
+    },
     removeChild() {}, remove() {}, contains() { return false; },
     addEventListener() {}, removeEventListener() {}, click() {},
     querySelector() { return null; }, querySelectorAll() { return []; },
     getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0, bottom: 0, right: 0 }; },
-    attachShadow() { return makeShadow(); },
+    attachShadow() { this.shadowRoot = makeShadow(); return this.shadowRoot; },
     isConnected: true, isContentEditable: false, nodeType: 1
   };
   return e;
 }
 function makeShadow() {
-  return {
-    appendChild() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+  // 收集子节点，供渲染冒烟测试检查；appendChild 同样严格校验
+  const s = {
+    children: [],
+    appendChild(c) {
+      if (!c || typeof c !== 'object') {
+        throw new TypeError("Failed to execute 'appendChild': parameter 1 is not of type 'Node'.");
+      }
+      s.children.push(c);
+    },
+    querySelector() { return null; }, querySelectorAll() { return []; },
     getElementById() { return null; }, removeChild() {}
   };
+  return s;
+}
+
+// 遍历打桩 DOM，收集所有文本（用于检查有没有"渲染失败"横幅）
+function collectText(node, out) {
+  out = out || [];
+  if (!node || typeof node !== 'object') return out;
+  // ⚠️ 必须跳过 <style>/<script>。
+  //    注入的 CSS 里带中文注释（"客户对话""候选话术""详情"…），
+  //    不排除的话"三框已挂载"这类断言会永远为真 —— 一个永远通过的断言
+  //    比没有断言更糟，它会给出虚假的信心。（真实踩到过。）
+  const tn = String(node.tagName || '').toUpperCase();
+  if (tn === 'STYLE' || tn === 'SCRIPT') return out;
+  if (node.textContent) out.push(String(node.textContent));
+  if (node.innerHTML) out.push(String(node.innerHTML));
+  if (Array.isArray(node.children)) node.children.forEach((c) => collectText(c, out));
+  if (node.shadowRoot) collectText(node.shadowRoot, out);   // Shadow DOM 不在 children 里，要单独走
+  return out;
 }
 
 const documentStub = {
@@ -90,7 +130,14 @@ const context = {
       sendMessage: (m, cb) => { if (typeof cb === 'function') cb({ ok: false, error: 'stub' }); },
       onMessage: { addListener() {} }, lastError: null, getURL: (p) => 'chrome-extension://stub/' + p
     },
-    storage: { local: { get: async () => ({}), set: async () => {} } },
+    storage: { local: {
+      // ⚠️ 必须调用回调 —— 扩展代码用的是回调风格。
+      //    只返回 Promise 会让 `await new Promise(res => loadUiPrefs(res))` 永远挂起，
+      //    于是 bootInner 走不完、render() 根本不执行，渲染冒烟测试就成了空转。
+      //    （真实踩到：测试"通过"了，但那个 bug 其实还在。）
+      get: (k, cb) => { const v = {}; if (typeof cb === 'function') { cb(v); return; } return Promise.resolve(v); },
+      set: (o, cb) => { if (typeof cb === 'function') { cb(); return; } return Promise.resolve(); }
+    } },
     tabs: { sendMessage: async () => {} },
     scripting: { executeScript: async () => {} },
     action: { onClicked: { addListener() {} }, setBadgeText() {}, setBadgeBackgroundColor() {} }
@@ -109,6 +156,13 @@ console.log('');
 vm.createContext(context);
 
 let failed = 0;
+// boot() 里 buildPanel() 在 try 之外 —— 它抛错会变成**静默的未处理 Promise 异常**。
+// 不接住的话，渲染冒烟测试会因为"什么都没渲染"而误报通过。
+process.on('unhandledRejection', (e) => {
+  console.log('  ✕ 未捕获的 Promise 异常：' + ((e && e.message) || e));
+  if (e && e.stack) console.log('     ' + String(e.stack).split('\n')[1]);
+  failed++;
+});
 const loaded = [];
 for (const f of files) {
   const full = path.join(EXT, f);
@@ -175,6 +229,75 @@ if (AIH && AIH.Adapters && AIH.Adapters.detect) {
   failed++;
 }
 
+// ---------- 渲染冒烟测试 ----------
+// 为什么必须跑一遍：只检查"符号存在"测不出运行时的 DOM 形状错误。
+// 真实踩到的例子：buildPanes() 漏返回 root，renderInner 里
+// body.appendChild(panes.root) 拿到 undefined —— 符号检查全过，
+// 用户却在浏览器里撞到 "parameter 1 is not of type 'Node'"。
+console.log('');
+console.log('=== 渲染冒烟测试（直接跑 buildPanel + render）===');
+try {
+  const T = context.window.AIH && context.window.AIH.__test;
+  if (!T) {
+    console.log('  ✕ 拿不到 AIH.__test 钩子');
+    failed++;
+  } else {
+    T.buildPanel();
+    T.state.adapter = context.window.AIH.Adapters.detect();
+    T.state.serverOk = true;                       // 走主路径而不是"连不上"分支
+    T.state.messages = [{ side: 'buyer', text: 'Ich möchte das Kleid zurückgeben.' }];
+    T.state.lastResult = null;
+    T.render();                                    // 无结果路径
+    T.renderFooterButtons();
+
+    // 造一份完整的分析结果，再跑一次有结果路径
+    T.state.lastResult = {
+      trace_id: 'tr_test', input: { country: 'DE' },
+      translation: { detected_lang: 'de', translated_text: '', glossary_hits: [{ foreign: 'Kleid', term_zh: '连衣裙' }] },
+      analysis: { primary_intent: 'refund', intents: [], emotion: { polarity: 'negative', intensity: 3, signals: [] },
+                  urgency: 'high', risk_flags: [], primary_intent_zh: '退款诉求' },
+      retrieval: { coverage: 'sufficient', evidence: [{ doc_id: 'DE-BGB-355', title: '撤回权', snippet: '...', score: 0.8, country: 'DE' }] },
+      candidates: [{ candidate_id: 'c1', style: '安抚致歉', text_zh: '非常抱歉…', text_en: 'Sorry…', cited_evidence: ['DE-BGB-355'], unsupported: false }],
+      compliance: [{ candidate_id: 'c1', style: '安抚致歉', decision: 'pass', violations: [] }],
+      routing: { group: '售后组', sla: '4h', source: 'ecommerce-intent-routing' },
+      calming: { level: 3, action: '致歉 + 给选项', source: 'customer-reply-craft' },
+      skill_application: ['test'],
+      meta: { latency_ms: 100, skills: ['after-sales-qa'], composed_prompt_chars: 1000, generated_by: 'local-template', model_used: [] },
+      escalation: { need_human: false, reason: '' },
+      final: { recommended_candidate_id: 'c1' }
+    };
+    T.render();
+    T.renderFooterButtons();
+
+    const texts = collectText(context.document.documentElement).join('\n');
+    const bad = [];
+    if (texts.includes('渲染失败')) bad.push('renderInner 抛异常（面板出现"渲染失败"横幅）');
+    if (texts.includes('初始化失败')) bad.push('bootInner 抛异常（面板出现"初始化失败"横幅）');
+    if (bad.length) {
+      bad.forEach((b) => { console.log('  ✕ ' + b); failed++; });
+      const m = texts.match(/TypeError[^\n]{0,130}/);
+      if (m) console.log('     ' + m[0]);
+    } else if (texts.length < 20) {
+      console.log('  ✕ 渲染后几乎没有任何内容（文本长度 ' + texts.length + '）—— 可能是空转');
+      failed++;
+    } else {
+      // 再断言三个框真的挂上去了。
+      // 只查"有没有报错"抓不到"忘把框挂进页面"这类漏挂载（不抛异常，只是没渲染）。
+      const need = ['客户对话', '候选话术', '详情'];
+      const miss = need.filter((x) => !texts.includes(x));
+      if (miss.length) {
+        console.log('  ✕ 三个框没挂全，缺少：' + miss.join('、'));
+        failed++;
+      } else {
+        console.log('  ✓ 两条路径渲染无异常；三个框（客户对话/候选话术/详情）均已挂载，产出 ' + texts.length + ' 字符');
+      }
+    }
+  }
+} catch (err) {
+  console.log('  ✕ 渲染阶段直接抛出：' + ((err && err.message) || err));
+  if (err && err.stack) console.log('     ' + String(err.stack).split('\n')[1]);
+  failed++;
+}
 console.log('');
 console.log('==============================================');
 if (failed === 0) console.log('  全部通过（' + loaded.length + ' 个文件加载成功，9 个符号齐全）');
