@@ -296,6 +296,39 @@
 .fab.hidden{display:none}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
 .dot.on{background:var(--ok)}.dot.off{background:var(--danger)}
+/* ---------- 三个可滚动框（主界面骨架）----------
+   为什么这么分：面板宽度只有 392px，纵向空间是稀缺资源。
+   把"读到的客户话""可发送的话术""诊断信息"分成三个各自可滚动的框，
+   每个框都能独立翻，就不会出现"话术被平台信息挤到屏幕外"的情况。 */
+.panes{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px;padding:10px}
+.pane{display:flex;flex-direction:column;min-height:0;background:var(--card);
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.pane-hd{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 10px;
+  border-bottom:1px solid var(--border);background:#fafbfe;flex-wrap:wrap}
+.pane-hd .pt{font-size:12px;font-weight:600;flex:1;min-width:0}
+.pane-hd .pn{font-size:10.5px;color:var(--muted);font-weight:400}
+.pane-bd{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 11px}
+.pane-bd::-webkit-scrollbar{width:8px}
+.pane-bd::-webkit-scrollbar-thumb{background:#cfd8e8;border-radius:4px}
+/* ① 客户对话：中等高度 */
+#paneChat{flex:0 0 auto;height:246px}
+/* ② 候选话术：占剩下的全部（最大） */
+#paneCands{flex:1 1 auto;min-height:150px}
+/* ③ 详情：包住那些下拉栏 */
+#paneDetail{flex:0 0 auto;height:152px}
+.pane-bd .card:last-child,.pane-bd .fold:last-child{margin-bottom:0}
+/* 对话气泡（客户对话框内） */
+.chatmsg{margin-bottom:9px}
+.chatmsg .cm-who{font-size:10px;color:var(--muted);margin-bottom:3px}
+.chatmsg .cm-txt{background:#f7f9fd;border-left:3px solid #8a919f;border-radius:7px;
+  padding:7px 9px;font-size:12px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.chatmsg.buyer .cm-txt{border-left-color:#2f6bff;background:#f5f8ff}
+.chatmsg.bot   .cm-txt{border-left-color:#7c5cff;background:#f8f6ff;color:#5b6472}
+.chatmsg.human .cm-txt{border-left-color:#18a058;background:#f4fbf7}
+.chatmsg .cm-zh{margin-top:4px;font-size:11.5px;color:#5b6472;background:#fafbfe;
+  border:1px dashed var(--border);border-radius:7px;padding:6px 9px;line-height:1.6;white-space:pre-wrap}
+.termchip{display:inline-block;font-size:10.5px;background:var(--primary-soft);color:#2456d6;
+  border-radius:6px;padding:2px 7px;margin:4px 4px 0 0}
 /* ---------- 可折叠区块 ----------
    为什么默认收起：面板里除了"候选话术"，其余都是辅助信息。
    全部摊开会把核心产出挤到屏幕外，新人根本找不到该点什么。 */
@@ -543,16 +576,11 @@
 
   function applyFolds() {
     if (!body) return;
-    const folded = [];
-    Array.prototype.slice.call(body.querySelectorAll('.card')).forEach(function (c) {
-      if (c.getAttribute('data-nofold') === '1') return;
+    // 三框布局已经把辅助卡片放进③「详情」框了，这里只做"折叠"，**不再搬位置**。
+    // （旧的两段式布局会把卡片移到 body 末尾；在三框下那样做会把卡片从③号框里拽出来）
+    Array.prototype.slice.call(body.querySelectorAll('.pane-bd .card')).forEach(function (c) {
       makeCollapsible(c);
-      folded.push(c);
     });
-    // 辅助信息统一挪到候选话术之后。
-    // 核心产出（话术）应该紧跟在操作条下面 —— 新人打开面板第一眼要看到的就是它，
-    // 而不是"当前平台/意图情绪"这些诊断信息。
-    folded.forEach(function (c) { body.appendChild(c); });
   }
 
   function saveFolds() {
@@ -656,19 +684,81 @@
     await runAnalyze(t, '窗口直读 · ' + (w.title || '').slice(0, 20));
   }
 
-  function renderIdle(msgHtml) {
-    // ⚠️ 这里**不能**写 body.innerHTML = ''。
-    //    那会把上面刚加的"连不上本地服务"横幅和适配器信息一起擦掉，
-    //    用户只看到一个空面板，根本没法排查（v0.9 踩过这个坑）。
-    const prev = body.querySelector ? body.querySelector('.idlebox') : null;
-    if (prev && prev.remove) prev.remove();
-    body.appendChild(h('div', { class: 'empty idlebox', html: msgHtml || '还没有读取对话<br>点下面的「读取并生成话术」<br><br><span style="color:var(--primary)">或者在页面上用鼠标选中买家的话，<br>会出现「🔍 分析选中」按钮</span>' }));
+  /* ---------------- 三个可滚动框 ---------------- */
+  function buildPanes() {
+    function mk(id, title, extra) {
+      const p = h('div', { class: 'pane', id: id });
+      const hd = h('div', { class: 'pane-hd' });
+      hd.appendChild(h('span', { class: 'pt', text: title }));
+      if (extra) hd.appendChild(extra);
+      const bd = h('div', { class: 'pane-bd' });
+      p.appendChild(hd); p.appendChild(bd);
+      return { root: p, hd: hd, bd: bd };
+    }
+    // ① 客户对话：读取源按钮 + 分析按钮都放在这个框的标题栏里
+    const chat = mk('paneChat', '客户对话', h('span', { class: 'pn', id: 'chatCount', text: '' }));
+    const ctl = h('div', { id: 'chatHdCtl', style: 'flex:1 0 100%;margin-top:6px' });
+    chat.hd.appendChild(ctl);
+    // ② 候选话术（最大）
+    const cands = mk('paneCands', '候选话术', h('span', { class: 'pn', id: 'candCount', text: '' }));
+    // ③ 详情：包住所有折叠卡片
+    const detail = mk('paneDetail', '详情', h('span', { class: 'pn', text: '点标题展开' }));
+    return { chat: chat, cands: cands, detail: detail, ctl: ctl };
   }
+
+  /* 客户对话内容：分说话人气泡 + 中文对照
+     诚实说明：本地模式没有整句翻译能力，只能给术语级对照；
+     接入千帆后 translation.translated_text 会有整段中文译文。 */
+  const SPEAKER_ZH = { buyer: '客户', bot: 'AI客服', human: '人工客服' };
+
+  function buildChatPane(bd, tr) {
+    bd.innerHTML = '';
+    const msgs = state.messages || [];
+
+    if (!msgs.length) {
+      bd.appendChild(h('div', { class: 'empty', html:
+        '还没有读到对话<br><br><span style="color:var(--primary)">用上面的「页面 / 剪贴板 / 窗口 / 读屏」<br>' +
+        '任一方式读取，或直接在页面上选中买家的话</span>' }));
+      return;
+    }
+
+    // 说话人识别：客户 / AI客服 / 人工客服
+    msgs.forEach(function (m) {
+      const side = m.side === 'buyer' ? 'buyer' : (m.side === 'seller' ? 'human' : 'bot');
+      const w = h('div', { class: 'chatmsg ' + side });
+      w.appendChild(h('div', { class: 'cm-who', text: SPEAKER_ZH[side] || '消息' }));
+      w.appendChild(h('div', { class: 'cm-txt', text: m.text || '' }));
+      bd.appendChild(w);
+    });
+
+    // 中文对照
+    const box = h('div', { style: 'margin-top:10px' });
+    const zh = (tr && tr.translated_text) ? String(tr.translated_text).trim() : '';
+    if (zh) {
+      box.appendChild(h('div', { class: 'sec', text: '中文对照' }));
+      box.appendChild(h('div', { class: 'cm-zh', text: zh }));
+    } else {
+      const terms = (tr && tr.glossary_hits) || [];
+      box.appendChild(h('div', { class: 'sec', text: '术语对照' }));
+      if (terms.length) {
+        const tc = h('div');
+        terms.forEach(function (t) {
+          tc.appendChild(h('span', { class: 'termchip', text: t.foreign + ' → ' + t.term_zh }));
+        });
+        box.appendChild(tc);
+      }
+      box.appendChild(h('div', { class: 'tiny', style: 'margin-top:6px;line-height:1.7', html:
+        (tr && tr.status ? esc(tr.status) + '<br>' : '') +
+        '接上千帆后这里会是整句中文译文（对照翻译）。' }));
+    }
+    bd.appendChild(box);
+  }
+
 
   function render() {
     if (!shadow) return;
     body.innerHTML = '';
-    try { renderInner(); applyFolds(); }
+    try { renderInner(); applyFolds(); renderFooterButtons(); }
     catch (err) {
       const m = (err && (err.stack || err.message)) || String(err);
       console.error('[售后助手] 渲染失败', err);
@@ -863,9 +953,8 @@
       };
       ban.appendChild(h('div', { style: 'margin-top:9px' }, [btnRetry]));
       body.appendChild(ban);
-    } else {
-      body.appendChild(h('div', { class: 'banner ok', text: '✓ 已连接本地服务 ' + SERVER_URL }));
     }
+    // 连接正常时不占横幅 —— 页脚已有 🟢 已连接，省下的纵向空间留给话术
 
     // 上一次请求失败（连接是好的，只是这次调用出错）—— 必须和"未连接"区分开
     if (state.lastError) {
@@ -881,9 +970,50 @@
       body.appendChild(eb);
     }
 
+    // ============ 三个可滚动框 ============
+    const panes = buildPanes();
+    const r = state.lastResult;
+
+    // 高风险警示放在三框之上 —— 这是必须"不滚动就能看到"的信息
+    if (r && r.escalation && r.escalation.need_human) {
+      body.appendChild(h('div', {
+        class: 'banner err',
+        html: '<b>⚠ 高风险案件</b>（' + esc(ESC_ZH[r.escalation.reason] || r.escalation.reason || '') +
+              '）<br>回复前请核对政策依据，避免口径与该国法规或平台规则冲突。'
+      }));
+    }
+
+    body.appendChild(panes.root);
+    const detailBd = panes.detail.bd;
+    const candsBd  = panes.cands.bd;
+
+    // ① 客户对话：有没有分析结果都要渲染 —— 用户得先看到"到底读了什么"
+    buildChatPane(panes.chat.bd, r ? r.translation : null, state.readNote);
+    const ccEl = panes.chat.hd.querySelector('#chatCount');
+    if (ccEl) ccEl.textContent = state.messages.length ? (state.messages.length + ' 条') : '空';
+    const candCnt = panes.cands.hd.querySelector('#candCount');
+    if (candCnt) candCnt.textContent = r && r.candidates ? (r.candidates.length + ' 条') : '';
+
     // 适配器
     const ad = state.adapter;
-    body.appendChild(h('div', { class: 'card' }, [
+    // ③ 详情框第一张卡：读取设置（国家 / 回复语言）——
+    // 用户要求"第三个框把那些下拉栏包裹进去"，放这里不挤占客户对话的空间。
+    const cs = h('select', { class: 'sel', style: 'flex:1;min-width:96px',
+      onchange: (e) => { state.country = e.target.value; state.lastText = ''; } });
+    [['UNKNOWN', '国家：未知'], ['ES', '西班牙'], ['DE', '德国'], ['FR', '法国'],
+     ['IT', '意大利'], ['US', '美国'], ['GB', '英国'], ['NL', '荷兰'],
+     ['AU', '澳大利亚'], ['JP', '日本']]
+      .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.country) o.selected = true; cs.appendChild(o); });
+    const ls = h('select', { class: 'sel', style: 'flex:1;min-width:88px',
+      onchange: (e) => { state.targetLang = e.target.value; render(); } });
+    [['en', '英文'], ['es', '西语'], ['zh', '中文']]
+      .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.targetLang) o.selected = true; ls.appendChild(o); });
+    detailBd.appendChild(h('div', { class: 'card' }, [
+      h('div', { class: 'sec', text: '读取设置' }),
+      h('div', { class: 'row' }, [cs, ls])
+    ]));
+
+    detailBd.appendChild(h('div', { class: 'card' }, [
       h('div', { class: 'sec', text: '当前平台' }),
       h('div', { class: 'kv' }, [h('span', { text: '适配器' }), h('span', { text: ad.name })]),
       h('div', { class: 'kv' }, [h('span', { text: '消息区识别' }), h('span', {
@@ -900,24 +1030,12 @@
         : null
     ]));
 
-    // 对话预览
-    if (state.messages.length) {
-      const preview = AIH.messagesToText(state.messages, 8);
-      body.appendChild(h('div', { class: 'card' }, [
-        h('div', { class: 'sec', text: '对话预览（最近 8 条）' }),
-        h('div', { class: 'pv', text: preview })
-      ]));
-    }
-
-    // 分析结果
-    const r = state.lastResult;
-    if (!r) { renderIdle(); return; }
-
-    if (r.escalation && r.escalation.need_human) {
-      body.appendChild(h('div', {
-        class: 'banner err',
-        html: '<b>⚠ 高风险案件</b>（' + esc(ESC_ZH[r.escalation.reason] || r.escalation.reason || '') + '）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。'
-      }));
+    // 没有分析结果：候选话术框给空态，详情框只留平台信息
+    if (!r) {
+      candsBd.appendChild(h('div', { class: 'empty', html:
+        '还没有生成话术<br><br>点上方「分析」，<br>或用「页面 / 剪贴板 / 窗口 / 读屏」读取对话' }));
+      renderFooterButtons();
+      return;
     }
 
     // 意图情绪
@@ -936,7 +1054,7 @@
       a.risk_flags.forEach(x => p.appendChild(h('span', { class: 'pill r', text: RISK_ZH[x] || x })));
       c1.appendChild(p);
     }
-    body.appendChild(c1);
+    detailBd.appendChild(c1);
 
     // 工单路由 + SLA（技能驱动，来自 ecommerce-intent-routing）
     if (r.routing) {
@@ -946,7 +1064,7 @@
       if (r.routing.risk && r.routing.risk !== '—') {
         cr.appendChild(h('div', { class: 'kv' }, [h('span', { text: '风险提示' }), h('span', { text: r.routing.risk })]));
       }
-      body.appendChild(cr);
+      detailBd.appendChild(cr);
     }
 
     // 情绪安抚策略（技能驱动，来自 customer-reply-craft）
@@ -957,7 +1075,7 @@
       if (r.calming.forbidden && r.calming.forbidden !== '—') {
         cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '禁止' }), h('span', { html: '<span style="color:#a3282c">' + esc(r.calming.forbidden) + '</span>' })]));
       }
-      body.appendChild(cc);
+      detailBd.appendChild(cc);
     }
 
     // 读取状态说明：读到 0 条 / 用的是上次结果，都要明说
@@ -976,9 +1094,9 @@
           h('div', { class: 'evm', text: e.doc_id + ' · ' + e.country + ' · 生效 ' + (e.effective_date || '-') + ' · 匹配 ' + e.score })
         ]));
       });
-      body.appendChild(ce);
+      detailBd.appendChild(ce);
     } else if (r.retrieval) {
-      body.appendChild(h('div', { class: 'banner warn', text: '未检索到可依据的政策条目 —— 此时不应给出任何政策承诺，请人工核实。' }));
+      detailBd.appendChild(h('div', { class: 'banner warn', text: '未检索到可依据的政策条目 —— 此时不应给出任何政策承诺，请人工核实。' }));
     }
 
     // 技能命中（触发词机制）
@@ -990,7 +1108,7 @@
       if (r.meta.composed_prompt_chars) {
         cs.appendChild(h('div', { class: 'tiny', text: '已注入提示词 ' + r.meta.composed_prompt_chars + ' 字符' }));
       }
-      body.appendChild(cs);
+      detailBd.appendChild(cs);
     }
 
     // 候选话术
@@ -998,7 +1116,6 @@
     (r.compliance || []).forEach(c => compMap[c.candidate_id] = c);
     const recId = r.final.recommended_candidate_id;
 
-    body.appendChild(h('div', { class: 'sec', style: 'margin:2px 0 7px', text: '候选话术（' + r.candidates.length + ' 条）' }));
 
     r.candidates.forEach(c => {
       const comp = compMap[c.candidate_id] || { decision: 'pass', violations: [] };
@@ -1038,11 +1155,11 @@
       }
       cf.appendChild(h('button', { class: 'btn sm', text: '✕', title: '忽略', onclick: () => fb('ignore', c, r) }));
       card.appendChild(cf);
-      body.appendChild(card);
+      candsBd.appendChild(card);
     });
 
     // 底部信息
-    body.appendChild(h('div', { class: 'tiny', style: 'margin-top:4px', html:
+    candsBd.appendChild(h('div', { class: 'tiny', style: 'margin-top:4px', html:
       'trace ' + esc(r.trace_id) + ' · ' + r.meta.latency_ms + 'ms · 话术来源：' +
       (r.meta.generated_by === 'model' ? '模型' : '本地模板') +
       '<br>读取方式：' + (state.selectors.messageList || state.selectors.messageItem ? '适配器选择器' : '启发式识别') +
@@ -1270,44 +1387,29 @@
     toast('已停止监听');
   }
 
+  /* 主视图的控件统一挂在①「客户对话」框的标题栏里：
+     读取源按钮排 + 分析按钮 + 国家/回复语言。
+     这样"读什么、怎么读、什么时候分析"和"读到的内容"在同一个框里，
+     不用在面板上下找按钮。 */
   function renderFooterButtons() {
-    let bar = shadow.querySelector('#actbar');
-    // 子页面（模型设置 / 选窗口 / 拾取选择器）不显示"读取源 + 操作"条 ——
-    // 那是主视图的东西，摆在设置表单上面只会让人困惑。
-    if (state.view !== 'main') {
-      if (bar) bar.remove();
-      return;
-    }
-    if (!bar) {
-      bar = h('div', { id: 'actbar', class: 'card' });
-      body.insertBefore(bar, body.firstChild);
-    }
-    bar.innerHTML = '';
-    bar.appendChild(h('div', { class: 'sec', text: '读取源' }));
-    bar.appendChild(renderSourceBar());
-    bar.setAttribute('data-nofold', '1');
-    bar.appendChild(h('div', { class: 'sec', text: '操作', style: 'margin-top:4px' }));
-    const row1 = h('div', { class: 'row' });
-    row1.appendChild(h('button', { class: 'btn pri', text: '读取并生成话术', onclick: analyze }));
+    if (state.view !== 'main') return;          // 子页面不显示主视图控件
+    const ctl = shadow && shadow.querySelector('#chatHdCtl');
+    if (!ctl) return;                             // 主视图还没渲染出来
+    ctl.innerHTML = '';
+
+    ctl.appendChild(renderSourceBar());
+
+    const row1 = h('div', { class: 'row', style: 'margin-top:6px' });
+    row1.appendChild(h('button', { class: 'btn pri sm', text: '分析',
+      title: '读取当前对话并刷新下方候选话术', onclick: analyze }));
     row1.appendChild(state.watching
-      ? h('button', { class: 'btn dan', text: '⏹ 停止监听', onclick: stopWatch })
-      : h('button', { class: 'btn', text: '▶ 自动监听', onclick: startWatch }));
-    row1.appendChild(h('button', { class: 'btn sm', text: '↻', title: '刷新读取', onclick: () => { state.lastText = ''; analyze(); } }));
-    bar.appendChild(row1);
+      ? h('button', { class: 'btn dan sm', text: '⏹ 停止', onclick: stopWatch })
+      : h('button', { class: 'btn sm', text: '▶ 自动监听', onclick: startWatch }));
+    row1.appendChild(h('button', { class: 'btn sm', text: '↻', title: '强制重读',
+      onclick: () => { state.lastText = ''; analyze(); } }));
+    ctl.appendChild(row1);
 
-    const row2 = h('div', { class: 'row', style: 'margin-top:8px' });
-    const cs = h('select', { class: 'sel', style: 'flex:1;min-width:110px', onchange: (e) => { state.country = e.target.value; state.lastText = ''; } });
-    [['UNKNOWN', '国家：未知（保守）'], ['ES', '西班牙'], ['DE', '德国'], ['FR', '法国'], ['IT', '意大利'], ['US', '美国'], ['GB', '英国'], ['NL', '荷兰'], ['AU', '澳大利亚'], ['JP', '日本']]
-      .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.country) o.selected = true; cs.appendChild(o); });
-    row2.appendChild(cs);
-
-    const ls = h('select', { class: 'sel', style: 'flex:1;min-width:96px', onchange: (e) => { state.targetLang = e.target.value; render(); } });
-    [['en', '英文'], ['es', '西语'], ['zh', '中文']]
-      .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.targetLang) o.selected = true; ls.appendChild(o); });
-    row2.appendChild(ls);
-    bar.appendChild(row2);
-
-    if (state.busy) bar.appendChild(h('div', { class: 'tiny', style: 'margin-top:6px', text: '正在分析…' }));
+    // 国家 / 回复语言两个下拉放进③「详情」框 —— 见 renderInner 的「读取设置」卡
   }
 
   /* ---------------- 选择器拾取 ---------------- */
@@ -1332,7 +1434,7 @@
           h('button', { class: 'btn pri sm', text: '开始拾取', onclick: () => beginPick(it) })
         ])
       ]);
-      body.appendChild(card);
+      candsBd.appendChild(card);
     });
     body.appendChild(h('div', { class: 'row' }, [
       h('button', { class: 'btn sm', text: '← 返回', onclick: render }),

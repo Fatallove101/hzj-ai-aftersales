@@ -93,6 +93,39 @@
 .fab.hidden{display:none}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
 .dot.on{background:var(--ok)}.dot.off{background:var(--danger)}
+/* ---------- 三个可滚动框（主界面骨架）----------
+   为什么这么分：面板宽度只有 392px，纵向空间是稀缺资源。
+   把"读到的客户话""可发送的话术""诊断信息"分成三个各自可滚动的框，
+   每个框都能独立翻，就不会出现"话术被平台信息挤到屏幕外"的情况。 */
+.panes{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:8px;padding:10px}
+.pane{display:flex;flex-direction:column;min-height:0;background:var(--card);
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.pane-hd{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:8px 10px;
+  border-bottom:1px solid var(--border);background:#fafbfe;flex-wrap:wrap}
+.pane-hd .pt{font-size:12px;font-weight:600;flex:1;min-width:0}
+.pane-hd .pn{font-size:10.5px;color:var(--muted);font-weight:400}
+.pane-bd{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 11px}
+.pane-bd::-webkit-scrollbar{width:8px}
+.pane-bd::-webkit-scrollbar-thumb{background:#cfd8e8;border-radius:4px}
+/* ① 客户对话：中等高度 */
+#paneChat{flex:0 0 auto;height:212px}
+/* ② 候选话术：占剩下的全部（最大） */
+#paneCands{flex:1 1 auto;min-height:150px}
+/* ③ 详情：包住那些下拉栏 */
+#paneDetail{flex:0 0 auto;height:158px}
+.pane-bd .card:last-child,.pane-bd .fold:last-child{margin-bottom:0}
+/* 对话气泡（客户对话框内） */
+.chatmsg{margin-bottom:9px}
+.chatmsg .cm-who{font-size:10px;color:var(--muted);margin-bottom:3px}
+.chatmsg .cm-txt{background:#f7f9fd;border-left:3px solid #8a919f;border-radius:7px;
+  padding:7px 9px;font-size:12px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.chatmsg.buyer .cm-txt{border-left-color:#2f6bff;background:#f5f8ff}
+.chatmsg.bot   .cm-txt{border-left-color:#7c5cff;background:#f8f6ff;color:#5b6472}
+.chatmsg.human .cm-txt{border-left-color:#18a058;background:#f4fbf7}
+.chatmsg .cm-zh{margin-top:4px;font-size:11.5px;color:#5b6472;background:#fafbfe;
+  border:1px dashed var(--border);border-radius:7px;padding:6px 9px;line-height:1.6;white-space:pre-wrap}
+.termchip{display:inline-block;font-size:10.5px;background:var(--primary-soft);color:#2456d6;
+  border-radius:6px;padding:2px 7px;margin:4px 4px 0 0}
 /* ---------- 可折叠区块 ----------
    为什么默认收起：面板里除了"候选话术"，其余都是辅助信息。
    全部摊开会把核心产出挤到屏幕外，新人根本找不到该点什么。 */
@@ -201,7 +234,7 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   <div class="hintlabel">子页面也隐藏了"读取源/操作"条；页脚「←」位置固定，Esc 同样可返回</div>
   </div>
   <div>
-    <div class="preview-label">② 停靠侧栏 · 挤开页面不遮挡</div>
+    <div class="preview-label">② 三框布局：客户对话 / 候选话术 / 详情</div>
     
   <div class="panel" style="position:relative;left:0;top:0;right:auto;width:392px;height:700px;
        border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
@@ -213,43 +246,81 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
       <button class="btn sm">—</button>
     </div>
     <div class="bd" style="height:604px">
-<div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
-<div class="card" data-nofold="1">
-  <div class="sec">读取源</div>
-  <div class="srcbar">
-    <button class="srcbtn on">页面</button>
-    <button class="srcbtn">剪贴板</button>
-    <button class="srcbtn">窗口</button>
-    <button class="srcbtn">读屏</button>
+<div class="panes" style="height:600px">
+
+  <div class="pane" id="paneChat">
+    <div class="pane-hd">
+      <span class="pt">客户对话</span><span class="pn">3 条</span>
+      <div style="flex:1 0 100%;margin-top:6px">
+        <div class="srcbar">
+          <button class="srcbtn on">页面</button>
+          <button class="srcbtn">剪贴板</button>
+          <button class="srcbtn">窗口</button>
+          <button class="srcbtn">读屏</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn pri sm">分析</button>
+          <button class="btn sm">▶ 自动监听</button>
+          <button class="btn sm">↻</button>
+        </div>
+        
+      </div>
+    </div>
+    <div class="pane-bd">
+      <div class="chatmsg buyer"><div class="cm-who">客户</div>
+        <div class="cm-txt">Guten Tag! Ich habe heute das rote Kleid erhalten, aber die Farbe ist völlig anders als auf Ihren Fotos.</div></div>
+      <div class="chatmsg bot"><div class="cm-who">AI客服</div>
+        <div class="cm-txt">Es tut mir leid. Ich kann nur eine Anfrage anlegen.</div></div>
+      <div class="chatmsg human"><div class="cm-who">人工客服</div>
+        <div class="cm-txt">Vielen Dank für Ihre Nachricht, ich kümmere mich darum.</div></div>
+      <div style="margin-top:10px">
+        <div class="sec">术语对照</div>
+        <span class="termchip">Kleid → 连衣裙</span><span class="termchip">Farbe → 颜色</span>
+        <div class="tiny" style="margin-top:6px;line-height:1.7">本地演示未接入翻译模型，下方分析基于原文；接上千帆后这里会是整句中文译文（对照翻译）。</div>
+      </div>
+    </div>
   </div>
-  <div class="sec" style="margin-top:4px">操作</div>
-  <div class="row">
-    <button class="btn pri">读取并生成话术</button>
-    <button class="btn">▶ 自动监听</button>
-    <button class="btn sm">↻</button>
+
+  <div class="pane" id="paneCands">
+    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span></div>
+    <div class="pane-bd">
+      <div class="cand rec">
+        <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
+        <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
+        <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
+        <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
+      </div>
+      <div class="cand">
+        <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
+        <div class="cb">We are very sorry the quality issue caused you trouble…</div>
+        <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
+        <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
+      </div>
+    </div>
   </div>
-  <div class="row" style="margin-top:8px">
-    <select class="sel" style="flex:1"><option>西班牙</option></select>
-    <select class="sel" style="flex:1"><option>英文</option></select>
+
+  <div class="pane" id="paneDetail">
+    <div class="pane-hd"><span class="pt">详情</span><span class="pn">点标题展开</span></div>
+    <div class="pane-bd">
+<div class="card fold closed">
+        <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">读取设置</span></div>
+        <div class="foldbd"><div class="row"><select class="sel" style="flex:1"><option>德国</option></select><select class="sel" style="flex:1"><option>英文</option></select></div></div>
+      </div>
+      <div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">当前平台</span><span class="pill i">通用</span></div>
+    <div class="foldbd"><div class="kv"><span>适配器</span><span>通用（自动识别）</span></div></div>
   </div>
-</div>
+      <div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">意图 / 情绪 / 紧急度</span><span class="pill i">质量投诉</span></div>
+    <div class="foldbd"><div class="kv"><span>情绪</span><span>negative / 强度 4</span></div></div>
+  </div>
+      <div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">政策依据</span><span class="pill i">1 条</span></div>
+    <div class="foldbd"><div class="ev"><div class="evt">西班牙商品瑕疵救济顺位</div><div class="evs">买方主张瑕疵救济时，商家应先修理或更换。</div></div></div>
+  </div>
+    </div>
+  </div>
 
-<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对政策依据，避免口径与该国法规或平台规则冲突。</div>
-
-<div class="sec" style="margin:2px 0 8px">候选话术（3 条）<span style="color:var(--muted);font-weight:400"> · 推荐 c1</span></div>
-
-<div class="cand rec">
-  <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
-  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
-  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
-</div>
-
-<div class="cand">
-  <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble…</div>
-  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
-  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
 </div></div>
     <div class="ft">
       <span class="dot on"></span>
@@ -275,43 +346,81 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
       <button class="btn sm">—</button>
     </div>
     <div class="bd" style="height:524px">
-<div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
-<div class="card" data-nofold="1">
-  <div class="sec">读取源</div>
-  <div class="srcbar">
-    <button class="srcbtn on">页面</button>
-    <button class="srcbtn">剪贴板</button>
-    <button class="srcbtn">窗口</button>
-    <button class="srcbtn">读屏</button>
+<div class="panes" style="height:600px">
+
+  <div class="pane" id="paneChat">
+    <div class="pane-hd">
+      <span class="pt">客户对话</span><span class="pn">3 条</span>
+      <div style="flex:1 0 100%;margin-top:6px">
+        <div class="srcbar">
+          <button class="srcbtn on">页面</button>
+          <button class="srcbtn">剪贴板</button>
+          <button class="srcbtn">窗口</button>
+          <button class="srcbtn">读屏</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn pri sm">分析</button>
+          <button class="btn sm">▶ 自动监听</button>
+          <button class="btn sm">↻</button>
+        </div>
+        
+      </div>
+    </div>
+    <div class="pane-bd">
+      <div class="chatmsg buyer"><div class="cm-who">客户</div>
+        <div class="cm-txt">Guten Tag! Ich habe heute das rote Kleid erhalten, aber die Farbe ist völlig anders als auf Ihren Fotos.</div></div>
+      <div class="chatmsg bot"><div class="cm-who">AI客服</div>
+        <div class="cm-txt">Es tut mir leid. Ich kann nur eine Anfrage anlegen.</div></div>
+      <div class="chatmsg human"><div class="cm-who">人工客服</div>
+        <div class="cm-txt">Vielen Dank für Ihre Nachricht, ich kümmere mich darum.</div></div>
+      <div style="margin-top:10px">
+        <div class="sec">术语对照</div>
+        <span class="termchip">Kleid → 连衣裙</span><span class="termchip">Farbe → 颜色</span>
+        <div class="tiny" style="margin-top:6px;line-height:1.7">本地演示未接入翻译模型，下方分析基于原文；接上千帆后这里会是整句中文译文（对照翻译）。</div>
+      </div>
+    </div>
   </div>
-  <div class="sec" style="margin-top:4px">操作</div>
-  <div class="row">
-    <button class="btn pri">读取并生成话术</button>
-    <button class="btn">▶ 自动监听</button>
-    <button class="btn sm">↻</button>
+
+  <div class="pane" id="paneCands">
+    <div class="pane-hd"><span class="pt">候选话术</span><span class="pn">3 条</span></div>
+    <div class="pane-bd">
+      <div class="cand rec">
+        <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
+        <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
+        <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
+        <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
+      </div>
+      <div class="cand">
+        <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
+        <div class="cb">We are very sorry the quality issue caused you trouble…</div>
+        <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
+        <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
+      </div>
+    </div>
   </div>
-  <div class="row" style="margin-top:8px">
-    <select class="sel" style="flex:1"><option>西班牙</option></select>
-    <select class="sel" style="flex:1"><option>英文</option></select>
+
+  <div class="pane" id="paneDetail">
+    <div class="pane-hd"><span class="pt">详情</span><span class="pn">点标题展开</span></div>
+    <div class="pane-bd">
+<div class="card fold closed">
+        <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">读取设置</span></div>
+        <div class="foldbd"><div class="row"><select class="sel" style="flex:1"><option>德国</option></select><select class="sel" style="flex:1"><option>英文</option></select></div></div>
+      </div>
+      <div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">当前平台</span><span class="pill i">通用</span></div>
+    <div class="foldbd"><div class="kv"><span>适配器</span><span>通用（自动识别）</span></div></div>
   </div>
-</div>
+      <div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">意图 / 情绪 / 紧急度</span><span class="pill i">质量投诉</span></div>
+    <div class="foldbd"><div class="kv"><span>情绪</span><span>negative / 强度 4</span></div></div>
+  </div>
+      <div class="card fold closed">
+    <div class="foldhd"><span class="foldchev">▶</span><span class="foldttl">政策依据</span><span class="pill i">1 条</span></div>
+    <div class="foldbd"><div class="ev"><div class="evt">西班牙商品瑕疵救济顺位</div><div class="evs">买方主张瑕疵救济时，商家应先修理或更换。</div></div></div>
+  </div>
+    </div>
+  </div>
 
-<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对政策依据，避免口径与该国法规或平台规则冲突。</div>
-
-<div class="sec" style="margin:2px 0 8px">候选话术（3 条）<span style="color:var(--muted);font-weight:400"> · 推荐 c1</span></div>
-
-<div class="cand rec">
-  <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
-  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
-  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button><button class="btn sm">✕</button></div>
-</div>
-
-<div class="cand">
-  <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
-  <div class="cb">We are very sorry the quality issue caused you trouble…</div>
-  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
-  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>建议：补充"14 天内可无理由退货"的说明</div>
 </div></div>
     <div class="ft">
       <span class="dot on"></span>
