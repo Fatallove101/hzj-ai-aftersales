@@ -23,7 +23,7 @@ $script:EuCountries = @('DE','FR','ES','IT','NL','BE','PL','AT','PT','IE','SE','
 
 $script:CountryZh = @{
   'DE'='德国'; 'ES'='西班牙'; 'FR'='法国'; 'US'='美国'; 'GB'='英国'; 'IT'='意大利'
-  'NL'='荷兰'; 'EU'='欧盟'; 'CN'='中国'; 'ALL'='通用'; 'UNKNOWN'='未知'
+  'NL'='荷兰'; 'EU'='欧盟'; 'CN'='中国'; 'AU'='澳大利亚'; 'JP'='日本'; 'ALL'='通用'; 'UNKNOWN'='未知'
 }
 
 function Initialize-KnowledgeBase {
@@ -304,12 +304,24 @@ function Invoke-ComplianceCheck {
       try { $applies = [regex]::IsMatch($Text, $r.pattern) } catch { $applies = $false }
       if (-not $applies) { continue }
 
-      $fulfilled = $false
-      switch ($r.rule_id) {
-        'R018' { $fulfilled = ($Text -match '(14\s*(天|日)|14\s*(days|días|Tage|jours|tage))') }
-        'R019' { $fulfilled = ($Text -match '(Widerrufsrecht|撤回权|撤回權)') }
-        default { $fulfilled = $true }
-      }
+        # "该说的说了没有" —— 判断依据优先取数据里的 fulfill_pattern。
+        #
+        # 为什么改成数据驱动：原来这里把规则号硬编码在 switch 里，想加一条新的
+        # 告知义务规则（例如澳大利亚 ACL 的重大故障选择权、日本的处理时限）
+        # 就必须改代码。规则本来就是数据，判断依据也该是数据。
+        # 保留 switch 分支只是为了兼容没有该列的老 CSV。
+        $fulfilled = $false
+        $fp = ''
+        if ($r.PSObject.Properties.Name -contains 'fulfill_pattern') { $fp = [string]$r.fulfill_pattern }
+        if (-not [string]::IsNullOrWhiteSpace($fp)) {
+          try { $fulfilled = [regex]::IsMatch($Text, $fp) } catch { $fulfilled = $true }
+        } else {
+          switch ($r.rule_id) {
+            'R018' { $fulfilled = ($Text -match '(14\s*(天|日)|14\s*(days|días|Tage|jours|tage))') }
+            'R019' { $fulfilled = ($Text -match '(Widerrufsrecht|撤回权|撤回權)') }
+            default { $fulfilled = $true }
+          }
+        }
       if (-not $fulfilled) {
         $violations += [pscustomobject]@{
           rule_id    = $r.rule_id

@@ -205,7 +205,14 @@ function Invoke-Retrieval {
   $script:LastKbDegraded = $kbRes.degraded
   $script:LastKbReason   = $kbRes.degrade_reason
 
-  $hasPolicy = @($evidence | Where-Object { $_.doc_id -like 'EU-*' -or $_.doc_id -like 'DE-*' -or $_.doc_id -like 'FR-*' -or $_.doc_id -like 'ES-*' -or $_.doc_id -like 'GB-*' -or $_.doc_id -like 'US-*' -or $_.doc_id -like 'IT-*' -or $_.doc_id -like 'KID-*' }).Count -gt 0
+  # 覆盖度判定：有"国家级/地区级政策"命中才算 sufficient。
+  #
+  # ⚠️ 这里原来硬编码了一串 doc_id 前缀（EU-/DE-/FR-/ES-/GB-/US-/IT-/KID-）。
+  #    新增澳大利亚/日本政策后忘了同步 —— 明明检索到了 AU-ACL-SCH2，
+  #    却因为前缀不在列表里被判成 partial，直接影响"能不能给政策表述"。
+  #    改成按 country 字段判断（平台规则的 country 是 ALL），
+  #    以后新增国家不用再改代码。
+  $hasPolicy = @($evidence | Where-Object { $_.country -and $_.country -ne 'ALL' }).Count -gt 0
   $coverage = 'insufficient'
   if ($Country -eq 'UNKNOWN') { $coverage = 'insufficient' }
   elseif ($hasPolicy)         { $coverage = 'sufficient' }

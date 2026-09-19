@@ -1249,7 +1249,7 @@
 
     const row2 = h('div', { class: 'row', style: 'margin-top:8px' });
     const cs = h('select', { class: 'sel', style: 'flex:1;min-width:110px', onchange: (e) => { state.country = e.target.value; state.lastText = ''; } });
-    [['UNKNOWN', '国家：未知（保守）'], ['ES', '西班牙'], ['DE', '德国'], ['FR', '法国'], ['IT', '意大利'], ['US', '美国'], ['GB', '英国'], ['NL', '荷兰']]
+    [['UNKNOWN', '国家：未知（保守）'], ['ES', '西班牙'], ['DE', '德国'], ['FR', '法国'], ['IT', '意大利'], ['US', '美国'], ['GB', '英国'], ['NL', '荷兰'], ['AU', '澳大利亚'], ['JP', '日本']]
       .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.country) o.selected = true; cs.appendChild(o); });
     row2.appendChild(cs);
 

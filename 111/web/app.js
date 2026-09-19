@@ -290,8 +290,8 @@ function renderKB() {
   const h = window.__HEALTH;
   const d = (h && h.data) || {};
   const rows = [
-    { name:'policy_kb', label:'各国政策库', meta:'18 条政策 · 含生效日期 · 检索强制时效过滤', ok:true },
-    { name:'compliance_rules', label:'合规规则库', meta:'25 条可执行正则 · violation / obligation 两层', ok:true },
+    { name:'policy_kb', label:'各国政策库', meta:'20 条政策 · 含生效日期 · 检索强制时效过滤', ok:true },
+    { name:'compliance_rules', label:'合规规则库', meta:'30 条可执行正则 · violation / obligation 两层', ok:true },
     { name:'glossary', label:'服装术语库', meta:'46 条 · 中英西德法', ok:true },
     { name:'intent_taxonomy', label:'意图标签库', meta:'14 类 · 多语言信号词', ok:true },
     { name:'case_kb', label:'优质案例库', meta:'种子阶段为空，需从试点商户沉淀', ok:false },

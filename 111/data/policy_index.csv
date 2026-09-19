@@ -17,3 +17,5 @@ PLATFORM-TEMU-90,ALL,NA,Temu 退货政策,Temu Return Policy,平台对外承诺�
 PLATFORM-SHOPEE-VAR,ALL,NA,Shopee 退货窗口,Shopee Return and Refund Policy,各市场退货窗口不同（约7至15天），由平台保证期与争议流程约束,15,依平台规则,2026-01-01,https://seller.shopee.com,shopee,90,待运营确认,,seed
 KID-EN14682,EU,EU,童装绳带安全标准,EN 14682:2014 Safety of children's clothing,儿童服装头颈部、腰背部绳带长度与结构有强制安全要求；不符可能导致召回与下架,NA,NA,2015-06-30,https://standards.cencenelec.eu,ALL,180,待法务确认,,seed
 KID-US-CPSC,US,NA,美国童装安全要求,CPSC Children's Sleepwear and Small Parts Requirements,儿童睡衣须符合阻燃要求；小部件不得脱落形成窒息风险；须符合CPSIA铅含量与邻苯限制,NA,NA,2026-01-01,https://www.cpsc.gov/Business--Manufacturing/Business-Education,ALL,180,待法务确认,,seed
+AU-ACL-SCH2,AU,APAC,澳大利亚消费者法 法定保证,"Australian Consumer Law (Competition and Consumer Act 2010, Sch 2)","商品须符合""质量合格、与描述相符、适合用途、耐用""的法定保证，且不可被任何条款排除；发生重大故障时买家可自行选择退款或更换，商家不得限定只能修理；质量问题退回运费由商家承担",NA,商家（质量故障）,2011-01-01,https://www.legislation.gov.au/C2010A00148/latest/text,ALL,180,待法务确认,,seed
+JP-TOKUHO-11,JP,APAC,日本特定商取引法（通信販売）,特定商取引に関する法律,通信销售无强制冷却期，但退货政策必须在《特定商取引法に基づく表記》中明确记载并保持前后一致；单方面从严变更构成不当表示；瑕疵商品退货期限以未陈述瑕疵为准,NA,按公示政策（瑕疵商品由商家承担）,1976-06-04,https://www.no-trouble.caa.go.jp/what/tokushoho/,ALL,180,待法务确认,,seed
