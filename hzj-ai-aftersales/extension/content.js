@@ -1065,7 +1065,7 @@
               '<code style="font-size:10.5px;background:#fafbfe;padding:2px 5px;border-radius:3px">' +
               esc(SERVER_URL) + '/api/health</code><br>' +
               '<span style="color:#a3282c;font-size:11px">' + esc(state.serverMsg || '(没有拿到错误信息)') + '</span>' +
-              '<br><br>请确认已在项目目录运行：<br><code style="font-size:10.5px">hzj-ai-aftersales\\启动.bat</code>'
+              '<br><br>请确认已在项目目录运行：<br><code style="font-size:10.5px">hzj-ai-aftersales\\启动网页（推荐用扩展，详见README）.bat</code>'
       }));
       const btnRetry = h('button', { class: 'btn sm', text: '↻ 重试连接' });
       btnRetry.onclick = async () => {

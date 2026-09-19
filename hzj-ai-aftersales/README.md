@@ -135,7 +135,7 @@ discovery_terms: [安抚, 退款, 换货, 政策]   # 发现词（权重 1）
 
 ## 一、30 秒跑起来
 
-双击 **`启动.bat`** → 浏览器会自动打开 <http://127.0.0.1:8799/>
+双击 **`启动网页（推荐用扩展，详见README）.bat`** → 浏览器会自动打开 <http://127.0.0.1:8799/>
 
 不想用鼠标，也可以在 PowerShell 里跑：
 
@@ -263,7 +263,7 @@ Amazon 适配器已占位，后续加平台只需新增一个文件。
 
 ### 装起来（3 分钟）
 
-1. 先双击 `启动.bat` 把本地服务跑起来，**窗口别关**
+1. 先双击 `启动网页（推荐用扩展，详见README）.bat` 把本地服务跑起来，**窗口别关**
 2. 浏览器打开 `edge://extensions/` 或 `chrome://extensions/`
 3. 打开右上角「**开发人员模式**」
 4. 点「**加载解压缩的扩展**」，选 `hzj-ai-aftersales\extension` 这个**文件夹**
@@ -522,7 +522,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Widt
 
 ```
 hzj-ai-aftersales/
-├─ 启动.bat                  双击启动（内部调 server.ps1）
+├─ 启动网页（推荐用扩展，详见README）.bat      双击启动（内部调 server.ps1）
 ├─ server.ps1                本地服务：静态文件 + 9 个 API
 ├─ config.example.json       模型配置模板（复制成 config.local.json 后改，后者已被 git 忽略）
 ├─ README.md                 本文件

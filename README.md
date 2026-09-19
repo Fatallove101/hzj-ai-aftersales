@@ -40,7 +40,7 @@
 
 ## 30 秒跑起来
 
-**双击 `hzj-ai-aftersales\启动.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>
+**双击 `hzj-ai-aftersales\启动网页（推荐用扩展，详见README）.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>
 
 **零依赖**：不需要 Python、Node，也不需要管理员权限。
 只用系统自带的 PowerShell 5.1 + Windows 内置 OCR。
@@ -290,7 +290,7 @@ CSS 直接从 `extension/content.js` 提取（真实样式，非手抄），
 ```
 hzj-ai-aftersales/
 ├─ server.ps1              # 本地 HTTP 服务（TcpListener，端口 8799）
-├─ 启动.bat                # 双击启动
+├─ 启动网页（推荐用扩展，详见README）.bat   # 双击启动
 ├─ engine/                 # 后端逻辑
 │  ├─ pipeline.ps1         #   7-Agent 管线（主流程）
 │  ├─ llm.ps1              #   模型调用 + 密钥管理 + 提示词展开

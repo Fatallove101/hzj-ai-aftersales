@@ -103,7 +103,7 @@ function post(pathname, obj) {
 
   if (!alive) {
     console.log('  ⚠ 本地服务没在跑（' + HOST + ':' + PORT + '），跳过端到端检查');
-    console.log('    启动方式：hzj-ai-aftersales\\启动.bat');
+    console.log('    启动方式：hzj-ai-aftersales\\启动网页（推荐用扩展，详见README）.bat');
   } else {
     // 正确形状：content.js 传 {text,country,platform,category}
     //   → msg() 包成 {type:'analyze', payload:{text,...}}

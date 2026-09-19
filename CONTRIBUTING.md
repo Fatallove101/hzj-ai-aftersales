@@ -34,7 +34,7 @@
 
 ```powershell
 # 启动本地演示（双击也行）
-.\hzj-ai-aftersales\启动.bat
+.\hzj-ai-aftersales\启动网页（推荐用扩展，详见README）.bat
 # 然后浏览器打开 http://127.0.0.1:8799/
 ```
 

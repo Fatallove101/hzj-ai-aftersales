@@ -216,7 +216,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({
         ok: false,
         error: isNetErr
-          ? '连不上本地服务。请先双击 hzj-ai-aftersales\\启动.bat 启动它（默认 http://127.0.0.1:8799）。'
+          ? '连不上本地服务。请先双击 hzj-ai-aftersales\\启动网页（推荐用扩展，详见README）.bat 启动它（默认 http://127.0.0.1:8799）。'
           : String(e && e.message || e)
       });
     }
