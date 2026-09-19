@@ -25,6 +25,7 @@
       <button class="nav-item" data-page="tasks"><span class="ni">📋</span>任务看板</button>
       <button class="nav-item" data-page="skills"><span class="ni">🧩</span>技能中心</button>
       <button class="nav-item" data-page="kb"><span class="ni">📚</span>知识库</button>
+      <button class="nav-item" data-page="audit"><span class="ni">🛡</span>审计日志</button>
       <button class="nav-item" data-page="settings"><span class="ni">⚙️</span>设置</button>
     </nav>
 
@@ -238,6 +239,18 @@
         <div class="card">
           <h2>知识库</h2>
           <div class="kbtable" id="kbTable"></div>
+        </div>
+      </section>
+
+      <!-- ---------- 页面：审计日志 ---------- -->
+      <section class="page" id="page-audit">
+        <div class="card">
+          <h2>审计日志 <span class="sub" id="auditMeta"></span></h2>
+          <div class="hint" style="margin-bottom:12px">
+            每一次分析的<b>完整调用链</b>：谁、什么时间、依据了哪些政策、命中了哪些技能、
+            推荐了哪条话术、耗时多少。与 HTTP 请求日志不同，这是<b>业务层</b>的可追溯记录。
+          </div>
+          <div id="auditList"></div>
         </div>
       </section>
 

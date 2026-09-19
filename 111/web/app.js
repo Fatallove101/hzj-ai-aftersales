@@ -59,7 +59,7 @@ function toast(msg, ok = true) {
 }
 
 /* ---------------- 页面路由 ---------------- */
-const PAGE_TITLE = { workbench:'工作台', tasks:'任务看板', skills:'技能中心', kb:'知识库', settings:'设置' };
+const PAGE_TITLE = { workbench:'工作台', tasks:'任务看板', skills:'技能中心', kb:'知识库', audit:'审计日志', settings:'设置' };
 let currentPage = 'workbench';
 
 function setPage(name) {
@@ -74,6 +74,7 @@ function setPage(name) {
   if (t) t.textContent = PAGE_TITLE[name] || name;
   if (name === 'skills') renderSkills();
   if (name === 'kb') renderKB();
+  if (name === 'audit') renderAudit();
   if (name === 'settings') renderSettings();
 }
 
@@ -230,6 +231,59 @@ async function renderSkills() {
     box.appendChild(c);
   });
 }
+/* ---------------- 审计日志 ----------------
+   记录每一次分析的完整调用链，用于事后追责与效果复盘。
+   注意与 logs/requests.log 区分：那是 HTTP 流水，这里是业务语义。 */
+async function renderAudit() {
+  const box = $('#auditList');
+  if (!box) return;
+  box.innerHTML = '<div class="hint">加载中…</div>';
+  let d = null;
+  try { d = await fetch('/api/audit').then(x => x.json()); } catch (e) {}
+  if (!d || !d.ok) { box.innerHTML = '<div class="hint">读不到审计日志（本地服务未启动？）</div>'; return; }
+
+  const meta = $('#auditMeta');
+  if (meta) meta.textContent = '最近 ' + d.count + ' 条';
+
+  if (!d.count) {
+    box.innerHTML = '<div class="empty-state">还没有记录<br><span>生成一次话术之后，这里会出现完整的调用链</span></div>';
+    return;
+  }
+  box.innerHTML = '';
+  const COV = { sufficient: 'var(--ok)', partial: 'var(--warn)', insufficient: 'var(--bad)' };
+  d.entries.forEach(function (e) {
+    const c = el('div', 'audititem');
+    const hd = el('div', 'row');
+    hd.appendChild(el('span', 'auditts', esc(e.ts || '')));
+    hd.appendChild(el('span', 'tag st', esc(e.intent || '-')));
+    hd.appendChild(el('span', 'tag', esc((e.country || '-') + ' / ' + (e.platform || '-'))));
+    hd.appendChild(el('span', 'tag ' + (e.urgency === 'critical' ? 'rj' : e.urgency === 'high' ? 'rv' : ''), esc(e.urgency || '-')));
+    if (e.need_human) hd.appendChild(el('span', 'tag rj', '高风险：' + esc(e.esc_reason || '')));
+    hd.appendChild(el('span', 'auditms', (e.latency_ms || 0) + 'ms'));
+    c.appendChild(hd);
+
+    const g = el('div', 'auditgrid');
+    g.appendChild(kv('情绪', esc(e.emotion || '-')));
+    g.appendChild(kv('知识覆盖', '<span style="color:' + (COV[e.coverage] || 'inherit') + '">' + esc(e.coverage || '-') + '</span>'));
+    g.appendChild(kv('候选 / 推荐', (e.candidates || 0) + ' 条 / ' + esc(e.recommended || '-')));
+    g.appendChild(kv('生成方式', e.generated_by === 'model' ? '外部模型' : '本地模板'));
+    g.appendChild(kv('命中技能', esc((e.skills || []).join('、') || '无')));
+    g.appendChild(kv('注入提示词', (e.prompt_chars || 0) + ' 字符'));
+    c.appendChild(g);
+
+    if ((e.evidence || []).length) {
+      const ev = el('div', 'auditev');
+      ev.appendChild(el('span', 'tiny', '依据政策：'));
+      e.evidence.forEach(function (id) { ev.appendChild(el('span', 'tag', esc(id))); });
+      c.appendChild(ev);
+    } else {
+      c.appendChild(el('div', 'tiny', '⚠ 本次没有检索到政策依据'));
+    }
+    if (e.input_head) c.appendChild(el('div', 'auditin', '输入：' + esc(e.input_head) + ((e.input_chars || 0) > 120 ? ' …' : '')));
+    box.appendChild(c);
+  });
+}
+
 function renderKB() {
   const box = $('#kbTable');
   if (!box) return;
@@ -871,6 +925,9 @@ async function feedback(action, cand, res, finalText) {
   const payload = {
     trace_id: res.trace_id, action, style: cand.style, candidate_id: cand.candidate_id,
     intent: res.analysis.primary_intent, country: res.input.country,
+    // 建议原文：服务端用它算"人工修改幅度"（相似度）。
+    // 只知道"改没改"不够，要知道"改了多少"才反映建议质量。
+    suggested_text: cand.text_zh || '',
     final_text: finalText != null ? finalText : (cand.text_zh || '')
   };
   try { await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); } catch (e) {}
@@ -1120,6 +1177,30 @@ async function showStats() {
         `<div class="an-title" style="margin-top:16px">按操作</div>${rows}` +
         `<div class="an-title" style="margin-top:16px">按风格</div>${styles || '<div class="hint">暂无</div>'}`;
     }
+    // 人工修改幅度：比采纳率更能反映建议准不准
+    if (r.edit_samples) {
+      const eb = el('div', 'an-sec');
+      eb.appendChild(el('div', 'an-title', '人工修改幅度（' + r.edit_samples + ' 条样本）'));
+      eb.appendChild(kv('平均相似度', '<b>' + r.edit_avg + '</b>'));
+      eb.appendChild(kv('总体判定', '<b>' + esc(r.edit_verdict || '') + '</b>'));
+      const bars = el('div');
+      const bk = r.edit_buckets || {};
+      const mx = Math.max.apply(null, Object.keys(bk).map(function (k) { return bk[k]; }).concat([1]));
+      Object.keys(bk).forEach(function (k) {
+        const rowEl = el('div', 'barrow');
+        rowEl.appendChild(el('span', 'barlbl', esc(k)));
+        const b = el('div', 'bar');
+        b.appendChild(el('i', null, ''));
+        b.firstChild.style.width = Math.round(bk[k] / mx * 100) + '%';
+        rowEl.appendChild(b);
+        rowEl.appendChild(el('span', 'barval', String(bk[k])));
+        bars.appendChild(rowEl);
+      });
+      eb.appendChild(bars);
+      eb.appendChild(el('div', 'tiny', '相似度 1.0 = 坐席原样使用；越低说明建议被改得越多。'));
+      $('#modalBody').appendChild(eb);
+    }
+
     $('#modalTitle').textContent = '数据闭环 · 采纳统计';
     $('#modal').classList.add('on');
   } catch (e) { toast('读取失败', false); }

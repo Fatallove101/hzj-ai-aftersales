@@ -22,6 +22,18 @@ foreach ($d in @($LogDir, $TmpDir)) { if (-not (Test-Path $d)) { New-Item -ItemT
 # 把浏览器实际发来的请求原样记下来，否则只能靠猜。
 # ---------------------------------------------------------------------
 $script:ReqLog = Join-Path $LogDir 'requests.log'
+# 审计日志：记录每一次分析的完整调用链（谁、什么时候、依据什么、给了什么、耗时多少）
+# 与 requests.log 的区别：那是 HTTP 层流水，这是**业务层**的可追溯记录。
+function Write-AuditLog {
+  param([hashtable]$Entry)
+  try {
+    $o = [ordered]@{ ts = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') }
+    foreach ($k in $Entry.Keys) { $o[$k] = $Entry[$k] }
+    $line = ([pscustomobject]$o | ConvertTo-Json -Compress -Depth 5)
+    [System.IO.File]::AppendAllText((Join-Path $LogDir 'audit.jsonl'), $line + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
+  } catch { }
+}
+
 function Write-ReqLog {
   param([string]$Line)
   try {
@@ -38,6 +50,7 @@ function Write-ReqLog {
 . (Join-Path $Root 'engine\llm.ps1')
 . (Join-Path $Root 'engine\skills.ps1')
 . (Join-Path $Root 'engine\pipeline.ps1')
+. (Join-Path $Root 'engine\metrics.ps1')
 
 Write-Host ""
 Write-Host "==============================================================" -ForegroundColor Cyan
@@ -362,6 +375,22 @@ function Handle-Request {
   }
 
   # 模型状态（只返回 has_key，绝不返回密钥本身）
+  # 审计日志
+  if ($path -eq '/api/audit' -and $Request.method -eq 'GET') {
+    $af = Join-Path $LogDir 'audit.jsonl'
+    $rows = @()
+    if (Test-Path $af) {
+      $all = @(Get-Content $af -Encoding UTF8)
+      $take = [math]::Min(300, $all.Count)
+      for ($i = $all.Count - 1; $i -ge $all.Count - $take; $i--) {
+        if ([string]::IsNullOrWhiteSpace($all[$i])) { continue }
+        try { $rows += ($all[$i] | ConvertFrom-Json) } catch { }
+      }
+    }
+    Send-Json -Stream $Stream -Object @{ ok = $true; count = $rows.Count; entries = @($rows) }
+    return
+  }
+
   # 规则库一览（诊断用：直接看函数内部看到的规则表）
   if ($path -eq '/api/rules' -and $Request.method -eq 'GET') {
     $deRules = @(Get-ApplicableRules -Country 'DE')
@@ -477,6 +506,29 @@ function Handle-Request {
     try {
       $r = Invoke-Pipeline -Text $text -Country $country -Platform $platform -Category $category -Source 'text'
       Write-Host ("  [分析] {0} | {1} | {2} | {3}ms" -f $country, $r.analysis.primary_intent, $r.escalation.need_human, $r.meta.latency_ms) -ForegroundColor DarkGray
+      Write-AuditLog -Entry @{
+        kind         = 'analyze'
+        source       = 'text'
+        trace_id     = $r.trace_id
+        country      = $country
+        platform     = $platform
+        intent       = $r.analysis.primary_intent
+        urgency      = $r.analysis.urgency
+        emotion      = ('{0}/{1}' -f $r.analysis.emotion.polarity, $r.analysis.emotion.intensity)
+        risk_flags   = @($r.analysis.risk_flags)
+        coverage     = $r.retrieval.coverage
+        evidence     = @($r.retrieval.evidence | ForEach-Object { $_.doc_id })
+        skills       = @($r.meta.skills)
+        prompt_chars = $r.meta.composed_prompt_chars
+        candidates   = @($r.candidates).Count
+        recommended  = $r.final.recommended_candidate_id
+        need_human   = [bool]$r.escalation.need_human
+        esc_reason   = [string]$r.escalation.reason
+        latency_ms   = $r.meta.latency_ms
+        generated_by = [string]$r.meta.generated_by
+        input_chars  = $text.Length
+        input_head   = $(if ($text.Length -gt 120) { $text.Substring(0, 120) } else { $text })
+      }
       Send-Json -Stream $Stream -Object @{ ok=$true; result=$r }
     } catch {
       Send-Json -Stream $Stream -Object @{ ok=$false; error=$_.Exception.Message } -Status 500
@@ -516,6 +568,15 @@ function Handle-Request {
 
   if ($path -eq '/api/feedback' -and $Request.method -eq 'POST') {
     $b = Get-BodyJson -Request $Request
+        # （字段在下方一并构造，这里不再单独建对象）
+    # 建议原文：用于算"人工修改幅度"。没有它就只知道"改没改"，
+    # 不知道"改了多少" —— 而后者才是衡量建议质量的关键。
+    $suggested = [string]$b.suggested_text
+    $final     = [string]$b.final_text
+    $sim = $null
+    if (-not [string]::IsNullOrWhiteSpace($suggested)) {
+      $sim = Get-TextSimilarity -A $suggested -B $final
+    }
     $line = @{
       ts        = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
       trace_id  = [string]$b.trace_id
@@ -524,13 +585,17 @@ function Handle-Request {
       candidate_id = [string]$b.candidate_id
       intent    = [string]$b.intent
       country   = [string]$b.country
-      final_text= [string]$b.final_text
+      final_text= $final
+      suggested_text = $suggested
+      edit_ratio = $sim                      # 1.0=完全照用  越低改动越大
+      verdict    = $(if ($null -ne $sim) { Get-EditVerdict -Similarity $sim } else { '' })
     }
     $jsonLine = ($line | ConvertTo-Json -Depth 5 -Compress)
     $logFile = Join-Path $LogDir 'qa_logs.jsonl'
     [System.IO.File]::AppendAllText($logFile, $jsonLine + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host ("  [反馈] {0} / {1} / {2}" -f $line.action, $line.style, $line.intent) -ForegroundColor DarkGray
-    Send-Json -Stream $Stream -Object @{ ok=$true }
+    Write-Host ("  [反馈] {0} / {1} / {2}{3}" -f $line.action, $line.style, $line.intent,
+      $(if ($null -ne $sim) { " / 相似度 $sim" } else { '' })) -ForegroundColor DarkGray
+    Send-Json -Stream $Stream -Object @{ ok=$true; edit_ratio=$sim; verdict=$line.verdict }
     return
   }
 
@@ -554,7 +619,32 @@ function Handle-Request {
     $acc = 0; if ($byAction.ContainsKey('accept')) { $acc = $byAction['accept'] }
     $edit = 0; if ($byAction.ContainsKey('edit')) { $edit = $byAction['edit'] }
     $rate = 0; if ($total -gt 0) { $rate = [math]::Round(($acc + $edit) / $total, 3) }
-    Send-Json -Stream $Stream -Object @{ ok=$true; total=$total; by_action=$byAction; by_style=$byStyle; accept_rate=$rate }
+
+    # 人工修改幅度分布。
+    # 比"采纳率"信息量大得多：采纳率只区分用/不用，
+    # 修改幅度能区分"直接照用"和"改到面目全非"，这才是建议准不准的真实信号。
+    $sims = @($rows | Where-Object { $null -ne $_.edit_ratio } | ForEach-Object { [double]$_.edit_ratio })
+    $simAvg = $null
+    if ($sims.Count -gt 0) {
+      $s = 0.0; foreach ($x in $sims) { $s += $x }
+      $simAvg = [math]::Round($s / $sims.Count, 4)
+    }
+    $buckets = [ordered]@{ '几乎照用(≥0.95)'=0; '小幅润色(0.8~0.95)'=0; '明显改写(0.55~0.8)'=0; '大幅重写(0.25~0.55)'=0; '完全没用(<0.25)'=0 }
+    foreach ($x in $sims) {
+      if     ($x -ge 0.95) { $buckets['几乎照用(≥0.95)']++ }
+      elseif ($x -ge 0.80) { $buckets['小幅润色(0.8~0.95)']++ }
+      elseif ($x -ge 0.55) { $buckets['明显改写(0.55~0.8)']++ }
+      elseif ($x -ge 0.25) { $buckets['大幅重写(0.25~0.55)']++ }
+      else                 { $buckets['完全没用(<0.25)']++ }
+    }
+
+    Send-Json -Stream $Stream -Object @{
+      ok=$true; total=$total; by_action=$byAction; by_style=$byStyle; accept_rate=$rate
+      edit_samples = $sims.Count
+      edit_avg = $simAvg
+      edit_verdict = $(if ($null -ne $simAvg) { Get-EditVerdict -Similarity $simAvg } else { '' })
+      edit_buckets = $buckets
+    }
     return
   }
 
