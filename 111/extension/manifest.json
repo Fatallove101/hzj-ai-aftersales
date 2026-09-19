@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "跨境售后 AI 话术助手",
-  "version": "0.9.0",
+  "version": "0.17.0",
   "description": "在客服后台侧边栏读取对话，生成候选话术并一键插入输入框。配合本地服务 (127.0.0.1:8799) 使用。",
 
   "permissions": ["storage", "activeTab", "scripting"],
@@ -17,6 +17,13 @@
 
   "background": {
     "service_worker": "background.js"
+  },
+
+  "commands": {
+    "open-workbench": {
+      "suggested_key": { "default": "Alt+Shift+W" },
+      "description": "在独立小窗打开话术助手（不受页面 CSP 限制，任何平台都能用）"
+    }
   },
 
   "action": {

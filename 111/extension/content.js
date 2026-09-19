@@ -21,6 +21,7 @@
     overrides: {},
     messages: [],
     lastText: '',
+    lastSource: '',
     lastResult: null,
     serverOk: false,
     lastError: '',
@@ -264,7 +265,7 @@
     //    用户只看到一个空面板，根本没法排查（v0.9 踩过这个坑）。
     const prev = body.querySelector ? body.querySelector('.idlebox') : null;
     if (prev && prev.remove) prev.remove();
-    body.appendChild(h('div', { class: 'empty idlebox', html: msgHtml || '还没有读取对话<br>点下面的「读取并生成话术」' }));
+    body.appendChild(h('div', { class: 'empty idlebox', html: msgHtml || '还没有读取对话<br>点下面的「读取并生成话术」<br><br><span style="color:var(--primary)">或者在页面上用鼠标选中买家的话，<br>会出现「🔍 分析选中」按钮</span>' }));
   }
 
   function render() {
@@ -451,9 +452,9 @@
       const ban = h('div', { class: 'banner err' });
       ban.appendChild(h('div', {
         html: '<b>连不上本地服务</b><br>' +
-              '<code style="font-size:10.5px;background:#0a0d12;padding:2px 5px;border-radius:3px">' +
+              '<code style="font-size:10.5px;background:#fafbfe;padding:2px 5px;border-radius:3px">' +
               esc(SERVER_URL) + '/api/health</code><br>' +
-              '<span style="color:#fecaca;font-size:11px">' + esc(state.serverMsg || '(没有拿到错误信息)') + '</span>' +
+              '<span style="color:#a3282c;font-size:11px">' + esc(state.serverMsg || '(没有拿到错误信息)') + '</span>' +
               '<br><br>请确认已在项目目录运行：<br><code style="font-size:10.5px">111\\启动.bat</code>'
       }));
       const btnRetry = h('button', { class: 'btn sm', text: '↻ 重试连接' });
@@ -496,8 +497,11 @@
       h('div', { class: 'kv' }, [h('span', { text: '读取到' }), h('span', {
         text: state.messages.length + ' 条消息'
       })]),
+      h('div', { class: 'kv' }, [h('span', { text: '分析来源' }), h('span', {
+        text: state.lastSource || '—'
+      })]),
       !ad.verified && (state.selectors.messageList || state.selectors.messageItem)
-        ? h('div', { class: 'tiny', style: 'margin-top:6px;color:#fcd34d', text: '⚠ 本平台选择器未经验证，如识别不准请用 ⚙ 重新拾取' })
+        ? h('div', { class: 'tiny', style: 'margin-top:6px;color:#8a5706', text: '⚠ 本平台选择器未经验证，如识别不准请用 ⚙ 重新拾取' })
         : null
     ]));
 
@@ -556,7 +560,7 @@
       cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '情绪级别' }), h('span', { text: r.calming.level + ' / 5' })]));
       cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '处理方式' }), h('span', { text: r.calming.action })]));
       if (r.calming.forbidden && r.calming.forbidden !== '—') {
-        cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '禁止' }), h('span', { html: '<span style="color:#fca5a5">' + esc(r.calming.forbidden) + '</span>' })]));
+        cc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '禁止' }), h('span', { html: '<span style="color:#a3282c">' + esc(r.calming.forbidden) + '</span>' })]));
       }
       body.appendChild(cc);
     }
@@ -698,6 +702,39 @@
     return r;
   }
 
+  /* 把"发文本给服务端并渲染"抽出来复用。
+     两个入口都会走它：① 页面自动/手动读取  ② 「选中即分析」 */
+  async function runAnalyze(text, sourceLabel) {
+    if (state.busy) return;
+    text = String(text || '').trim();
+    if (!text) return;
+
+    state.busy = true;
+    state.setupMode = false;      // 从选中分析进来时自动退出配置界面
+    state.setupFirstRun = false;
+    render();
+
+    const res = await msg('analyze', { text: text, country: state.country, platform: state.platform, category: 'unknown' });
+    state.busy = false;
+
+    if (!res || !res.ok) {
+      // ⚠️ 这里**绝对不能**把 serverOk 改成 false。
+      //    /api/health 可能一直是通的，这只是"这一次 analyze 失败了"。
+      state.lastError = (res && res.error) || '未知错误';
+      toast('生成失败（连接正常）', false);
+      render();
+      return;
+    }
+    state.lastError = '';
+    state.serverOk = true;
+    state.lastText = text;
+    state.lastSource = sourceLabel || '页面读取';
+    state.lastResult = res.data.result;
+    setStatus(true, '已连接');
+    setVisible(true);
+    render();
+  }
+
   async function analyze() {
     if (state.busy) return;
     const r = readOnce();
@@ -716,28 +753,81 @@
       return;
     }
     if (text === state.lastText && state.lastResult) { render(); return; }
-
-    state.busy = true;
-    render();
-    const res = await msg('analyze', { text: text, country: state.country, platform: state.platform, category: 'unknown' });
-    state.busy = false;
-
-    if (!res || !res.ok) {
-      // ⚠️ 这里**绝对不能**把 serverOk 改成 false。
-      //    /api/health 可能一直是通的，这只是"这一次 analyze 失败了"。
-      //    之前这么写导致界面把请求失败误报成"未连接"，排查绕了一大圈。
-      state.lastError = (res && res.error) || '未知错误';
-      toast('生成失败（连接正常）', false);
-      render();
-      return;
-    }
-    state.lastError = '';
-    state.serverOk = true;
-    state.lastText = text;
-    state.lastResult = res.data.result;
-    setStatus(true, '已连接');
-    render();
+    await runAnalyze(text, '页面读取');
   }
+
+  /* =====================================================================
+     选中即分析 —— 通用兜底，任何平台第一天就能用
+     不用等适配器识别出消息列表：鼠标选中买家的一段话，点一下按钮就分析。
+     这是最不依赖平台 DOM 的入口，也是新平台接入的首选方式。
+     ===================================================================== */
+  let selBtn = null;
+
+  function ensureSelBtn() {
+    if (selBtn) return selBtn;
+    selBtn = document.createElement('button');
+    selBtn.type = 'button';
+    selBtn.textContent = '🔍 分析选中';
+    // 它挂在宿主页面（不在 Shadow DOM 里），所以样式得内联
+    selBtn.style.cssText = [
+      'position:fixed', 'z-index:2147483647', 'display:none',
+      'padding:7px 13px', 'border:none', 'border-radius:9px',
+      'background:#2f6bff', 'color:#fff',
+      'font:600 12px/1.2 "Segoe UI","Microsoft YaHei",sans-serif',
+      'cursor:pointer', 'box-shadow:0 4px 14px rgba(47,107,255,.42)'
+    ].join(';');
+    // 阻止默认行为，否则点按钮会把选区弄丢
+    selBtn.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+    selBtn.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const t = selBtn.__text || '';
+      hideSelBtn();
+      try { window.getSelection().removeAllRanges(); } catch (err) {}
+      if (t) runAnalyze(t, '选中文本');
+    });
+    document.documentElement.appendChild(selBtn);
+    return selBtn;
+  }
+
+  function hideSelBtn() { if (selBtn) selBtn.style.display = 'none'; }
+
+  function showSelBtn(rect) {
+    const b = ensureSelBtn();
+    b.style.display = 'block';
+    const bw = b.offsetWidth || 104, bh = b.offsetHeight || 30;
+    let left = rect.left + rect.width / 2 - bw / 2;
+    let top = rect.top - bh - 8;
+    if (top < 4) top = rect.bottom + 8;                        // 贴顶了就放下面
+    left = Math.max(6, Math.min(left, window.innerWidth - bw - 6));
+    top = Math.max(4, Math.min(top, window.innerHeight - bh - 4));
+    b.style.left = left + 'px';
+    b.style.top = top + 'px';
+  }
+
+  document.addEventListener('mouseup', function (e) {
+    // 点在自己面板/按钮上不处理
+    if (e.target === selBtn) return;
+    if (e.target && e.target.closest && e.target.closest('[data-aih-ui]')) return;
+    setTimeout(function () {
+      let sel = '';
+      try { sel = String(window.getSelection() || '').trim(); } catch (err) { return; }
+      if (!sel || sel.length < 4) { hideSelBtn(); return; }
+      if (sel.length > 4000) sel = sel.slice(0, 4000);
+      let rect = null;
+      try { rect = window.getSelection().getRangeAt(0).getBoundingClientRect(); } catch (err) {}
+      if (!rect || (!rect.width && !rect.height)) { hideSelBtn(); return; }
+      const b = ensureSelBtn();
+      b.__text = sel;
+      showSelBtn(rect);
+    }, 10);
+  }, true);
+
+  document.addEventListener('mousedown', function (e) {
+    if (e.target === selBtn) return;
+    hideSelBtn();
+  }, true);
+  document.addEventListener('scroll', hideSelBtn, true);
+  window.addEventListener('resize', hideSelBtn, true);
 
   function startWatch() {
     if (state.watching) return;

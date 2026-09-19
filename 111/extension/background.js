@@ -14,6 +14,29 @@
 const SERVER = 'http://127.0.0.1:8799';
 const TIMEOUT_MS = 30000;
 
+/* ---------------------------------------------------------------------
+   独立小窗（Alt+Shift+W）
+   有些平台页面禁止脚本注入（严格 CSP），侧边栏根本进不去。
+   这时用独立小窗：把本地服务的网页版工作台开成一个浏览器弹窗，
+   和平台页面并排摆放即可 —— 不受任何页面 CSP 限制。
+   --------------------------------------------------------------------- */
+function openStandaloneWindow() {
+  try {
+    chrome.windows.create({
+      url: SERVER + '/#workbench',
+      type: 'popup',
+      width: 1180,
+      height: 860
+    });
+  } catch (e) {
+    console.warn('[售后助手] 打开独立小窗失败：', e);
+  }
+}
+
+chrome.commands.onCommand.addListener((cmd) => {
+  if (cmd === 'open-workbench') openStandaloneWindow();
+});
+
 async function fetchWithTimeout(url, options = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
