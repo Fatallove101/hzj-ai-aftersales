@@ -76,7 +76,9 @@ function post(pathname, obj) {
       host: HOST, port: PORT, path: pathname, method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': body.length,
                  'Origin': 'chrome-extension://ehjgdemfbjplbabnkljhofhmhemfjmhe' },
-      timeout: 8000
+      // 接上模型后 /api/analyze 要跑 20~60s（模型单次调用本身就慢），
+      // 8 秒必然超时。契约测试验的是**请求体形状**，不是性能，所以给足时间。
+      timeout: 180000
     }, (res) => {
       let d = '';
       res.on('data', (c) => d += c);
