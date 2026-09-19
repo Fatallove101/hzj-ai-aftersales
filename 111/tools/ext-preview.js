@@ -174,6 +174,24 @@ const mainView = `
   </div>
 
 </div>`;
+/* ---------------- 视图 4：修改后采纳编辑器 ---------------- */
+const editView = `
+<div class="banner ok"><b>修改后采纳</b><br>改下面的<b>中文</b>，上面的外文会自动重新翻译；确认后直接插入输入框。</div>
+<div class="sec">发给客户 · English</div>
+<textarea class="rawtext" style="min-height:118px">We are very sorry for any inconvenience. The return policies vary across different platforms. To better assist you, please provide your order number.</textarea>
+<div class="tiny" style="margin-top:5px;color:var(--ok)">✓ 外文已同步</div>
+<div class="sec" style="margin-top:12px">中文（改这里 · 自动触发回译）</div>
+<textarea class="rawtext" style="min-height:130px">非常抱歉给您带来不便，不同平台的退货政策可能有所不同。为了更好地帮助您，请您提供订单号和具体平台，我们会尽快为您核实退货政策并协助处理。</textarea>
+<div class="row" style="margin-top:12px">
+  <button class="btn pri">⤵ 插入输入框（用外文）</button>
+  <button class="btn">📋 复制外文</button>
+</div>
+<div class="row" style="margin-top:6px">
+  <button class="btn">↻ 重新同步</button>
+  <button class="btn">仅记录采纳</button>
+</div>
+<div class="tiny" style="margin-top:8px">原始建议：<br>非常抱歉，这件商品的质量问题给您添麻烦了…</div>`;
+
 const html = `<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><title>扩展面板预览（浅色）</title>
 <style>
@@ -193,7 +211,11 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
     ${panel(mainView, { height: 830 })}
   </div>
   <div>
-    <div class="preview-label">③ 悬浮小窗 · 可拖动 + 三档缩放</div>
+    <div class="preview-label">③ 修改后采纳 · 改中文则外文自动同步</div>
+    ${panel(editView, { height: 830 })}
+  </div>
+  <div>
+    <div class="preview-label">④ 悬浮小窗 · 可拖动 + 三档缩放</div>
     ${panel(mainView, { float: true, width: 372, height: 740, label: '拖住标题栏可移动 · 停靠模式无尺寸按钮' })}
   </div>
 </div>

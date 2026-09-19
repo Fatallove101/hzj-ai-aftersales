@@ -229,6 +229,39 @@ if (AIH && AIH.Adapters && AIH.Adapters.detect) {
   failed++;
 }
 
+// ---------- CSS class 完整性检查 ----------
+// 为什么需要：扩展里用了 .rawtext（手动输入框、修改后采纳的文本框），
+// 但 CSS 里从没定义过 —— 结果是浏览器默认样式：白底深边框，在浅色面板里很突兀。
+// 这类"用了但没定义"的 class 不报错、不崩，只是难看，靠人眼看很难发现。
+console.log('');
+console.log('=== CSS class 完整性检查 ===');
+try {
+  const jsSrc = fs.readFileSync(path.join(EXT, 'content.js'), 'utf8');
+  const cs = jsSrc.indexOf('const CSS = `');
+  const ce = jsSrc.indexOf('`;', cs);
+  const cssText = (cs >= 0 && ce > cs) ? jsSrc.slice(cs + 12, ce) : '';
+  // 先剥掉注释再提取 —— 否则注释里提到的 class 名（比如说明文字里写 ".rawtext"）
+  // 会被当成"已定义"，检查就形同虚设（反向验证时发现的）
+  const cssCode = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+  const defined = new Set();
+  (cssCode.match(/\.[a-zA-Z][\w-]*/g) || []).forEach((x) => defined.add(x.slice(1)));
+  const used = new Set();
+  (jsSrc.match(/class:\s*'([^']+)'/g) || []).forEach((m) => {
+    const v = m.replace(/^class:\s*'/, '').replace(/'$/, '');
+    v.split(/\s+/).forEach((c) => { if (c) used.add(c); });
+  });
+  const allow = ['hidden', 'on', 'active', 'closed', 'float', 'pri', 'dan', 'sm', 'ghost'];
+  const missing = [...used].filter((c) => defined.has(c) === false && allow.indexOf(c) < 0);
+  if (missing.length) {
+    console.log('  ✕ 这些 class 在 JS 里用了，但 CSS 里没定义：' + missing.join(', '));
+    failed++;
+  } else {
+    console.log('  ✓ ' + used.size + ' 个 class 全部有 CSS 定义');
+  }
+} catch (e) {
+  console.log('  ✕ 检查失败：' + ((e && e.message) || e));
+  failed++;
+}
 // ---------- 渲染冒烟测试 ----------
 // 为什么必须跑一遍：只检查"符号存在"测不出运行时的 DOM 形状错误。
 // 真实踩到的例子：buildPanes() 漏返回 root，renderInner 里

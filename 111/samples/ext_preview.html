@@ -147,6 +147,21 @@
 .srcbtn.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
 .srcbtn:disabled{opacity:.45;cursor:not-allowed}
 .winpick{max-height:190px;overflow-y:auto}
+/* ---------- 多行文本输入框 ----------
+   ⚠️ 扩展里用了 .rawtext 这个 class（手动输入框、修改后采纳的中文/外文框），
+   但 CSS 里**从头到尾没定义过** —— 于是走浏览器默认样式：白底 + 深色边框，
+   在浅色面板里非常突兀（用户反馈"颜色较深有点突兀"）。
+   这里按网页版一致的规格补上：淡底、浅描边、圆角、铺满宽度。 */
+.rawtext{
+  width:100%; box-sizing:border-box; min-height:96px; resize:vertical;
+  background:#fafbfe; color:#5b6472;
+  border:1px solid var(--border); border-radius:9px;
+  padding:9px 11px; font-size:12.5px; font-family:inherit; line-height:1.65;
+}
+.rawtext:focus{outline:none; border-color:var(--primary); background:var(--card)}
+.rawtext::placeholder{color:var(--muted)}
+/* 手动输入框：给足高度，粘贴多轮对话时不憋屈 */
+.manualbox{min-height:132px;width:100%;font-size:12.5px;line-height:1.7;resize:vertical}
 .winpick .winrow{padding:7px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;
   cursor:pointer;font-size:11.5px;line-height:1.5}
 .winpick .winrow:hover{border-color:var(--primary);background:#fafbfe}
@@ -333,7 +348,46 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   <div class="hintlabel"></div>
   </div>
   <div>
-    <div class="preview-label">③ 悬浮小窗 · 可拖动 + 三档缩放</div>
+    <div class="preview-label">③ 修改后采纳 · 改中文则外文自动同步</div>
+    
+  <div class="panel" style="position:relative;left:0;top:0;right:auto;width:392px;height:830px;
+       border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
+    <div class="hd">
+      <div class="logo">AI</div>
+      <div class="ttl">跨境售后话术助手</div>
+      
+      <button class="btn sm" title="切换悬浮/停靠">⇱</button>
+      <button class="btn sm">—</button>
+    </div>
+    <div class="bd" style="height:734px">
+<div class="banner ok"><b>修改后采纳</b><br>改下面的<b>中文</b>，上面的外文会自动重新翻译；确认后直接插入输入框。</div>
+<div class="sec">发给客户 · English</div>
+<textarea class="rawtext" style="min-height:118px">We are very sorry for any inconvenience. The return policies vary across different platforms. To better assist you, please provide your order number.</textarea>
+<div class="tiny" style="margin-top:5px;color:var(--ok)">✓ 外文已同步</div>
+<div class="sec" style="margin-top:12px">中文（改这里 · 自动触发回译）</div>
+<textarea class="rawtext" style="min-height:130px">非常抱歉给您带来不便，不同平台的退货政策可能有所不同。为了更好地帮助您，请您提供订单号和具体平台，我们会尽快为您核实退货政策并协助处理。</textarea>
+<div class="row" style="margin-top:12px">
+  <button class="btn pri">⤵ 插入输入框（用外文）</button>
+  <button class="btn">📋 复制外文</button>
+</div>
+<div class="row" style="margin-top:6px">
+  <button class="btn">↻ 重新同步</button>
+  <button class="btn">仅记录采纳</button>
+</div>
+<div class="tiny" style="margin-top:8px">原始建议：<br>非常抱歉，这件商品的质量问题给您添麻烦了…</div></div>
+    <div class="ft">
+      <span class="dot on"></span>
+      <span class="tiny">已连接</span>
+      <span style="flex:1"></span>
+      
+      <button class="btn sm">🔑</button>
+      <button class="btn sm">⚙</button>
+    </div>
+  </div>
+  <div class="hintlabel"></div>
+  </div>
+  <div>
+    <div class="preview-label">④ 悬浮小窗 · 可拖动 + 三档缩放</div>
     
   <div class="panel float" style="position:relative;left:0;top:0;right:auto;width:372px;height:740px;
        border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">

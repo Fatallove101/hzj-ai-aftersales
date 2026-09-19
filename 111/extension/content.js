@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    content.js  ·  侧边栏主体
    在客服后台右侧注入一个面板：读取对话 → 生成话术 → 一键插入输入框
    用 Shadow DOM 隔离样式，避免与宿主页面互相污染。
@@ -371,6 +371,19 @@
 .srcbtn.on{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
 .srcbtn:disabled{opacity:.45;cursor:not-allowed}
 .winpick{max-height:190px;overflow-y:auto}
+/* ---------- 多行文本输入框 ----------
+   ⚠️ 扩展里用了 .rawtext 这个 class（手动输入框、修改后采纳的中文/外文框），
+   但 CSS 里**从头到尾没定义过** —— 于是走浏览器默认样式：白底 + 深色边框，
+   在浅色面板里非常突兀（用户反馈"颜色较深有点突兀"）。
+   这里按网页版一致的规格补上：淡底、浅描边、圆角、铺满宽度。 */
+.rawtext{
+  width:100%; box-sizing:border-box; min-height:96px; resize:vertical;
+  background:#fafbfe; color:#5b6472;
+  border:1px solid var(--border); border-radius:9px;
+  padding:9px 11px; font-size:12.5px; font-family:inherit; line-height:1.65;
+}
+.rawtext:focus{outline:none; border-color:var(--primary); background:var(--card)}
+.rawtext::placeholder{color:var(--muted)}
 /* 手动输入框：给足高度，粘贴多轮对话时不憋屈 */
 .manualbox{min-height:132px;width:100%;font-size:12.5px;line-height:1.7;resize:vertical}
 .winpick .winrow{padding:7px 9px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;
