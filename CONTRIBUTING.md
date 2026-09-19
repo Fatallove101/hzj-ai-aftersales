@@ -58,7 +58,7 @@ Unexpected token 'Windows' in expression or statement.
 
 ```powershell
 $b = New-Object System.Text.UTF8Encoding($true)
-Get-ChildItem -Recurse -Filter *.ps1 .\111 | ForEach-Object {
+Get-ChildItem -Recurse -Filter *.ps1 .\hzj-ai-aftersales | ForEach-Object {
   $t = [System.IO.File]::ReadAllText($_.FullName, (New-Object System.Text.UTF8Encoding($false)))
   [System.IO.File]::WriteAllText($_.FullName, $t, $b)
 }
@@ -131,7 +131,7 @@ Copy-Item .\agent设计\data\*.csv .\hzj-ai-aftersales\data\ -Force
 1. `agent设计/data/intent_taxonomy.csv`
 2. `agent设计/prompts/02-意图情绪Agent-系统提示词.md` 的标签表
 3. `agent设计/schemas/intent_emotion.schema.json` 的 enum
-4. `agentdesign/schemas/main_output.schema.json` 的 enum
+4. `agent设计/schemas/main_output.schema.json` 的 enum
 
 ---
 

@@ -1,4 +1,4 @@
-# 汉正街跨境售后 AI 话术助手
+﻿# 汉正街跨境售后 AI 话术助手
 
 面向武汉汉正街服装跨境商户的**多语言售后话术助手**，基于百度千帆构建。
 
@@ -112,7 +112,7 @@
 ### 1. 复制配置
 
 ```powershell
-cd 111
+cd hzj-ai-aftersales
 copy config.example.json config.local.json
 ```
 
@@ -181,7 +181,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File server.ps1 -Port 8799
 ## 验证（改完东西一定要跑）
 
 ```powershell
-cd 111
+cd hzj-ai-aftersales
 
 # 所有 .ps1 必须带 UTF-8 BOM（PS 5.1 否则按 GBK 解码 → 中文全乱 → 语法错）
 powershell -File tools\check-bom.ps1
@@ -211,16 +211,19 @@ node tools\test-render.js
 
 # 布局：无头浏览器真实测量
 powershell -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Width 1500 -Height 940
+
+# 文档引用：README 里写的项目内路径是不是真的存在
+powershell -ExecutionPolicy Bypass -File tools\check-docs.ps1
 ```
 
-**八项全绿才算通过。** 完整跑一遍约 1~2 分钟
+**九项全绿才算通过。** 完整跑一遍约 1~2 分钟
 （最慢的是 `selfcheck` 的 126 条模板自检和无头浏览器的布局实测）。
 
 > `selfcheck` 与 `test-extension-contract.js` 里的端到端检查**都会真的发请求**，
 > 但 `selfcheck` 默认强制走本地（`Set-LlmForceLocal`），
 > 只有加 `-UseModel` 才连模型 —— 避免"跑个测试又慢又花钱"。
 
-### 这八项分别是
+### 这九项分别是
 
 | # | 检查 | 覆盖 |
 |---|---|---|
@@ -232,6 +235,7 @@ powershell -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Width 1500 -Hei
 | 6 | `node --check` | 所有 JS 真语法解析 |
 | 7 | `selfcheck.ps1` | 后端行为用例 + 合规闸门单元测试（默认强制本地，不调模型） |
 | 8 | `layout-check.ps1` | 无头浏览器真实测量布局 |
+| 9 | `check-docs.ps1` | 文档里引用的项目内路径是否真实存在 |
 
 ### 几个检查是"被 bug 教出来的"
 
@@ -241,6 +245,9 @@ powershell -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Width 1500 -Hei
   抓到过 `buildPanes()` 漏返回 `root` 导致整个主界面白屏。
 - **视图路由完整性**：每个 `pushView('X')` 必须有对应的 `state.view === 'X'` 分支。
   抓到过 `pushView('picker')` 没有分支 → 点 ⌖ 落回主页。
+- **文档引用检查**：README 里反引号写的项目内路径必须真实存在。
+  目录从 `111` 改名成 `hzj-ai-aftersales` 后，README 里还留着 `cd 111` ——
+  这类过期不会报错，只有人照着做才发现。
 - **CSS class 完整性**：JS 里 `class:'X'` 用到的，CSS 里必须有定义。
   抓到过 `.rawtext`（文本框样式全丢）和 `.ruleitem`。
 - **这两条检查自己都踩过"没剥注释"的坑** —— 注释里提到的名字被当成真实定义，
