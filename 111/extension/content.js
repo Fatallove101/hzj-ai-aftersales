@@ -34,6 +34,7 @@
     uiMode: 'dock',        // dock=挤开页面  float=悬浮可拖动
     uiSize: 'normal',
     pos: { x: -1, y: -1 },
+    _baseMargin: undefined,   // 原始页面留白（启动时记一次）
     lastResult: null,
     serverOk: false,
     lastError: '',
@@ -83,6 +84,17 @@
     } catch (e) { }
   }
 
+  /* 记录"原始页面留白"基线。
+     ⚠️ 必须在**改动任何样式之前**调用一次（buildPanel 最开始），不能在使用时懒惰捕获。
+     懒惰捕获的坑：如果页面在我们注入之前就带着 marginRight（上次注入残留），
+     捕获到的就是那个值，于是"收起"永远还原不回去。
+     启动时记一次、之后只读不写，行为才是确定的。 */
+  function captureBaseMargin() {
+    try {
+      const html = document.documentElement;
+      if (state._baseMargin === undefined) state._baseMargin = html.style.marginRight || '';
+    } catch (e) { state._baseMargin = ''; }
+  }
   // 把当前 uiMode / uiSize / pos 应用到面板上
   function applyUi() {
     if (!panel) return;
@@ -101,15 +113,13 @@
       panel.style.left = state.pos.x + 'px';
       panel.style.top = state.pos.y + 'px';
       // 悬浮模式不挤页面
-      if (state._prevMargin === undefined) state._prevMargin = html.style.marginRight || '';
-      html.style.marginRight = state._prevMargin || '';
+      html.style.marginRight = state._baseMargin || '';
       html.style.overflowX = '';
     } else {
       panel.classList.remove('float');
       panel.style.left = ''; panel.style.top = '';
       panel.style.width = ''; panel.style.height = '';
       if (state.visible) {
-        if (state._prevMargin === undefined) state._prevMargin = html.style.marginRight || '';
         html.style.transition = 'margin-right .18s ease';
         html.style.marginRight = PANEL_W + 'px';
         html.style.overflowX = 'hidden';
@@ -447,7 +457,7 @@
       if (v) {
         applyUi();
       } else {
-        html.style.marginRight = state._prevMargin || '';
+        html.style.marginRight = state._baseMargin || '';
         html.style.overflowX = '';
       }
     } catch (e) { /* 个别页面不允许改根元素，忽略 */ }
@@ -714,7 +724,7 @@
     // 按钮和它影响的东西应该挨着（原来叫「分析」，用户反馈看不懂）。
     cands.hd.appendChild(h('button', {
       class: 'btn sm pri', text: '换一批', title: '重新读取当前对话，刷新下方候选话术',
-      onclick: () => analyze()
+      onclick: () => analyze(true)   // 换一批 = 强制重新生成
     }));
     // ③ 详情：包住所有折叠卡片
     const detail = mk('paneDetail', '详情', h('span', { class: 'pn', text: '点标题展开' }));
@@ -1294,7 +1304,7 @@
     render();
   }
 
-  async function analyze() {
+  async function analyze(force) {
     if (state.busy) return;
     const r = readOnce();
     if (!r.messages.length) {
@@ -1322,7 +1332,9 @@
       render();
       return;
     }
-    if (text === state.lastText && state.lastResult) { render(); return; }
+    // 「换一批」要的是**重新生成**，不是"文本没变就跳过"。
+    // 只有自动监听才需要去重（避免同一段话反复打模型），所以 force 时才强制重跑。
+    if (!force && text === state.lastText && state.lastResult) { render(); return; }
     await runAnalyze(text, '页面读取');
   }
 

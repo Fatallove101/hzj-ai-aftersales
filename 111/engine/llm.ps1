@@ -255,7 +255,15 @@ function Invoke-LLM {
   try {
     return Invoke-ChatCompletion -Task $Task -Params $Params -Config $cfg
   } catch {
-    Write-Warning (Protect-Secret ("模型调用失败，回退到本地规则：" + $_.Exception.Message))
+    # 把 URL 和状态码一并写出来。
+    # 之前只报 "The remote server returned an error: (404) Not Found"，
+    # 完全看不出是 endpoint 少拼了 /chat/completions（排查绕了很久）。
+    $u = Resolve-ChatUrl -Endpoint $cfg.endpoint
+    $detail = $_.Exception.Message
+    if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+      $detail = $detail + ' | ' + $_.ErrorDetails.Message
+    }
+    Write-Warning (Protect-Secret ("模型调用失败（$u）：" + $detail + "  → 回退到本地规则"))
     return $null
   }
 }
@@ -292,6 +300,75 @@ function Build-ChatRequest {
   return ($body | ConvertTo-Json -Depth 8)
 }
 
+# ---------------------------------------------------------------------
+# 把配置里的 endpoint 归一化成真正的"对话补全"地址。
+#
+# 为什么需要：配置里通常只填基址（https://qianfan.baidubce.com/v2），
+# 但真正要 POST 的是 .../v2/chat/completions。
+# 原来直接拿基址去 POST，千帆返回 404 ResourceNotFound ——
+# 而 Invoke-LLM 的 catch 把它降级成"本地模板"，界面上完全看不出是 URL 错了。
+# 现在基址和完整路径都能填，代码里统一补齐。
+# ---------------------------------------------------------------------
+function Resolve-ChatUrl {
+  param([string]$Endpoint)
+  $u = ([string]$Endpoint).Trim().TrimEnd('/')
+  if ([string]::IsNullOrWhiteSpace($u)) { return $u }
+  if ($u -match '/(chat/completions|completions|responses|messages)$') { return $u }
+  return $u + '/chat/completions'
+}
+# ---------------------------------------------------------------------
+# 稳健地把模型返回的文本解析成对象。
+#
+# 为什么需要：提示词里明确写了"只输出 JSON、不要用 markdown 代码块包裹"，
+# 但真实模型（实测千帆 ernie-4.5-turbo-128k）**照样会裹一层 ```json**。
+# 原来的判断是"第一个字符必须是 {"，遇到代码块就直接放弃 →
+# 翻译拿不到 translated_text、生成拿不到 candidates，
+# 全链路静默降级成本地模板（界面上完全看不出是解析失败）。
+# 所以这里做三层兜底：剥代码块 → 提取首个 JSON 块 → 直接尝试解析。
+# ---------------------------------------------------------------------
+function ConvertFrom-ModelJson {
+  param([string]$Text)
+  if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
+  $t = $Text.Trim()
+
+  # ① 剥掉 ```json ... ``` / ``` ... ``` 包裹
+  if ($t.StartsWith('```')) {
+    $t = $t -replace '^```[a-zA-Z]*\s*', ''
+    $t = $t -replace '\s*```\s*$', ''
+    $t = $t.Trim()
+  }
+
+  # ② 已经是 JSON 就直接解析
+  if ($t.StartsWith('{') -or $t.StartsWith('[')) {
+    try { return ($t | ConvertFrom-Json) } catch { }
+  }
+
+  # ③ 前后还有废话：截取第一段 { ... } 或 [ ... ]（按括号配对找结尾）
+  $startObj = $t.IndexOf('{')
+  $startArr = $t.IndexOf('[')
+  $start = -1; $open = ''; $close = ''
+  if ($startObj -ge 0 -and ($startArr -lt 0 -or $startObj -lt $startArr)) { $start = $startObj; $open = '{'; $close = '}' }
+  elseif ($startArr -ge 0) { $start = $startArr; $open = '['; $close = ']' }
+  if ($start -lt 0) { return $null }
+
+  $depth = 0; $inStr = $false; $esc = $false
+  for ($i = $start; $i -lt $t.Length; $i++) {
+    $ch = $t[$i]
+    if ($esc) { $esc = $false; continue }
+    if ($ch -eq '\') { if ($inStr) { $esc = $true }; continue }
+    if ($ch -eq '"') { $inStr = -not $inStr; continue }
+    if ($inStr) { continue }
+    if ($ch -eq $open)  { $depth++ }
+    elseif ($ch -eq $close) {
+      $depth--
+      if ($depth -eq 0) {
+        $cand = $t.Substring($start, $i - $start + 1)
+        try { return ($cand | ConvertFrom-Json) } catch { return $null }
+      }
+    }
+  }
+  return $null
+}
 function Invoke-ChatCompletion {
   param([string]$Task, [hashtable]$Params, $Config)
 
@@ -304,7 +381,8 @@ function Invoke-ChatCompletion {
     'Authorization' = "Bearer $key"
   }
 
-  $resp = Invoke-RestMethod -Uri $Config.endpoint -Method POST -Headers $headers `
+  $url = Resolve-ChatUrl -Endpoint $Config.endpoint
+  $resp = Invoke-RestMethod -Uri $url -Method POST -Headers $headers `
             -Body $bytes -TimeoutSec $Config.timeout
 
   # 兼容两种常见返回结构
@@ -316,11 +394,9 @@ function Invoke-ChatCompletion {
   }
   if ([string]::IsNullOrWhiteSpace($content)) { throw '模型返回内容为空或结构不符合预期' }
 
-  # 若上游返回 JSON，尝试解析成对象
-  $trimmed = $content.Trim()
-  if ($trimmed.StartsWith('{') -or $trimmed.StartsWith('[')) {
-    try { return ($trimmed | ConvertFrom-Json) } catch {}
-  }
+  # 若上游返回 JSON，尝试解析成对象（带代码块兜底，见 ConvertFrom-ModelJson）
+  $parsed = ConvertFrom-ModelJson -Text $content
+  if ($null -ne $parsed) { return $parsed }
   return $content
 }
 
