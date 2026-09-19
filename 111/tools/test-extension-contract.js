@@ -34,7 +34,9 @@ console.log('');
 console.log('=== 1) 静态检查：msg() 调用是否重复包装 payload ===');
 // msg(type, payload) 已经包了一层，调用方不能再传 { payload: ... }
 const calls = [];
-const re = /msg\(\s*'([a-zA-Z_]+)'\s*,\s*\{/g;
+// ⚠️ 字符类必须包含连字符：消息类型叫 'config-save'，
+//    写成 [a-zA-Z_]+ 会漏掉它，测试就出现盲区（自己踩过）。
+const re = /msg\(\s*'([a-zA-Z_-]+)'\s*,\s*\{/g;
 let m;
 while ((m = re.exec(content)) !== null) {
   // 取该调用起点后的一小段，看紧跟的键名

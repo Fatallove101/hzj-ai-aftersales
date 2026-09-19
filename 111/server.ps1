@@ -362,6 +362,50 @@ function Handle-Request {
   }
 
   # 模型状态（只返回 has_key，绝不返回密钥本身）
+  # 保存模型配置与 API Key（界面里输入，替代"登录"）
+  # 设计要点：
+  #   · API Key 只进不出 —— 存进 DPAPI 加密文件，响应里只回 has_key + 指纹
+  #   · provider/endpoint/model 写 config.local.json（不含密钥）
+  #   · 传空 api_key 表示清除
+  if ($path -eq '/api/config' -and $Request.method -eq 'POST') {
+    $b = Get-BodyJson -Request $Request
+    if ($null -eq $b) { Send-Json -Stream $Stream -Object @{ ok=$false; error='请求体不是合法 JSON' } -Status 400; return }
+    $changed = @()
+    try {
+      $names = @($b.PSObject.Properties.Name)
+
+      if ($names -contains 'api_key') {
+        $k = [string]$b.api_key
+        if ([string]::IsNullOrWhiteSpace($k)) {
+          [void](Remove-ApiKey)
+          $changed += 'api_key 已清除'
+        } else {
+          if ($k.Trim().Length -lt 8) {
+            Send-Json -Stream $Stream -Object @{ ok=$false; error='API Key 太短，请检查是否复制完整' } -Status 400
+            return
+          }
+          [void](Set-ApiKey -Key $k.Trim())
+          $changed += 'api_key 已保存（DPAPI 加密）'
+        }
+      }
+
+      $prov = $null; $ep = $null; $mdl = $null
+      if ($names -contains 'provider') { $prov = [string]$b.provider }
+      if ($names -contains 'endpoint') { $ep   = [string]$b.endpoint }
+      if ($names -contains 'model')    { $mdl  = [string]$b.model }
+      if ($prov -or $ep -or $mdl) {
+        [void](Set-ModelConfig -Provider $prov -Endpoint $ep -Model $mdl)
+        $changed += 'model 配置已保存'
+      }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok=$false; error=$_.Exception.Message } -Status 500
+      return
+    }
+    # 保存后立刻重算模型状态；**绝不回显密钥**
+    Send-Json -Stream $Stream -Object @{ ok = $true; changed = @($changed); model = (Get-ModelStatus) }
+    return
+  }
+
   if ($path -eq '/api/model-status' -and $Request.method -eq 'GET') {
     Send-Json -Stream $Stream -Object @{ ok = $true; model = (Get-ModelStatus) }
     return

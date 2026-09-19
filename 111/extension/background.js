@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    background.js  ·  MV3 Service Worker
    职责：唯一一个负责访问本地服务的角色。
 
@@ -75,8 +75,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           break;
         }
 
+        case 'config-save': {
+          // 保存模型配置与 API Key 到本地服务（DPAPI 加密）。
+          // Key 只进不出：服务端响应里只有 has_key + 指纹，不会回显密钥。
+          const data = await callServer('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(msg.payload || {})
+          });
+          sendResponse({ ok: true, data });
+          break;
+        }
+
         case 'config': {
-          // 保存/读取每个站点的选择器配置
+          // 保存/读取每个站点的选择器配置（存 chrome.storage，不经服务端）
           if (msg.payload && msg.payload.save) {
             const key = 'site:' + msg.payload.host;
             const cur = (await chrome.storage.local.get(key))[key] || {};

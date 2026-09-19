@@ -155,6 +155,34 @@ function Get-ModelConfig {
   return $default
 }
 
+# 写入模型配置（供界面保存用）。只改传入的字段，其余保持原值。
+# 注意：**API Key 不写在这里** —— 它单独走 DPAPI 加密存储，永远不落明文配置文件。
+function Set-ModelConfig {
+  param(
+    [string]$Provider,
+    [string]$Endpoint,
+    [string]$Model,
+    [int]$Timeout = 0
+  )
+  $cur = Get-ModelConfig
+  if (-not [string]::IsNullOrWhiteSpace($Provider)) { $cur.provider = $Provider }
+  if (-not [string]::IsNullOrWhiteSpace($Endpoint)) { $cur.endpoint = $Endpoint }
+  if (-not [string]::IsNullOrWhiteSpace($Model))    { $cur.model    = $Model }
+  if ($Timeout -gt 0) { $cur.timeout = $Timeout }
+
+  $obj = [ordered]@{
+    model = [ordered]@{
+      provider = $cur.provider
+      endpoint = $cur.endpoint
+      model    = $cur.model
+      timeout  = $cur.timeout
+    }
+  }
+  $json = $obj | ConvertTo-Json -Depth 5
+  [System.IO.File]::WriteAllText($script:LocalConfigPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+  return $cur
+}
+
 function Initialize-Llm {
   param([Parameter(Mandatory)][string]$Root)
   $script:LlmRoot = $Root

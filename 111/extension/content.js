@@ -25,6 +25,10 @@
     serverOk: false,
     lastError: '',
     serverMsg: '',
+    // 模型配置界面（首次使用时要输入自己的 API Key，替代传统"登录"）
+    setupMode: false,
+    setupFirstRun: false,
+    model: null,
     watching: false,
     timer: null,
     observer: null,
@@ -70,74 +74,101 @@
   }
 
   const CSS = `
-:host{all:initial;--panelw:392px}
-*{box-sizing:border-box;font-family:"Microsoft YaHei","Segoe UI",system-ui,sans-serif}
-.panel{position:fixed;top:0;right:0;width:var(--panelw);height:100vh;background:#0e1116;color:#e6e9ef;
-  border-left:1px solid #252c38;display:flex;flex-direction:column;z-index:2147483645;
-  box-shadow:-8px 0 28px rgba(0,0,0,.45);font-size:13px;line-height:1.55}
+:host{all:initial;--panelw:392px;
+  --bg:#f3f6fb;--card:#ffffff;--primary:#2f6bff;--primary-soft:#eaf0ff;
+  --danger:#e5484d;--danger-soft:#fdebec;--warn:#b47207;--warn-soft:#fff6e6;
+  --ok:#18a058;--ok-soft:#e8f7ef;--info-soft:#eef4ff;
+  --text:#1f2329;--muted:#8a919f;--border:#e3e8f3;--radius:14px}
+*{box-sizing:border-box;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+.panel{position:fixed;top:0;right:0;width:var(--panelw);height:100vh;background:var(--bg);color:var(--text);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:2147483645;
+  box-shadow:-4px 0 20px rgba(31,35,41,.08);font-size:13px;line-height:1.6}
 .panel.hidden{display:none}
-.hd{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #252c38;background:#12161d;flex:0 0 auto}
-.logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#3b82f6,#a78bfa);
-  display:grid;place-items:center;font-weight:800;font-size:11px;color:#fff;flex:0 0 auto}
-.ttl{font-weight:700;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hd{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);
+  background:linear-gradient(90deg,#1c2b4a,#27407a);color:#fff;flex:0 0 auto}
+.logo{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.16);
+  display:grid;place-items:center;font-weight:800;font-size:11px;color:#fff;flex:0 0 auto;
+  border:1px solid rgba(255,255,255,.28)}
+.ttl{font-weight:700;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.hd .btn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff}
+.hd .btn:hover{background:rgba(255,255,255,.26);color:#fff}
 .bd{flex:1 1 auto;overflow-y:auto;padding:12px}
-.bd::-webkit-scrollbar{width:8px}.bd::-webkit-scrollbar-thumb{background:#2a3240;border-radius:4px}
-.ft{flex:0 0 auto;padding:9px 12px;border-top:1px solid #252c38;background:#12161d;display:flex;gap:6px;align-items:center}
-.btn{border:1px solid #252c38;background:#1c212b;color:#e6e9ef;padding:6px 11px;border-radius:7px;
-  cursor:pointer;font-size:12px;font-family:inherit;transition:.15s;white-space:nowrap}
-.btn:hover{background:#232a36;border-color:#334054}
-.btn.pri{background:#3b82f6;border-color:#3b82f6;color:#fff;font-weight:600}
-.btn.pri:hover{background:#2f74e0}
-.btn.dan{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.5);color:#fca5a5}
-.btn.sm{padding:4px 8px;font-size:11.5px}
-.btn:disabled{opacity:.45;cursor:not-allowed}
+.bd::-webkit-scrollbar{width:8px}.bd::-webkit-scrollbar-thumb{background:#cfd8e8;border-radius:4px}
+.ft{flex:0 0 auto;padding:9px 12px;border-top:1px solid var(--border);background:var(--card);display:flex;gap:6px;align-items:center}
+.btn{border:1px solid var(--border);background:var(--card);color:var(--text);padding:6px 12px;border-radius:9px;
+  cursor:pointer;font-size:12.5px;font-family:inherit;transition:all .15s ease;white-space:nowrap}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.btn.pri:hover{background:#2456d6;color:#fff}
+.btn.dan{background:var(--danger-soft);border-color:#f3b9bb;color:var(--danger)}
+.btn.dan:hover{background:#fbdcdd;color:var(--danger)}
+.btn.sm{padding:4px 9px;font-size:11.5px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.sel{background:#1c212b;color:#e6e9ef;border:1px solid #252c38;border-radius:6px;padding:5px 7px;font-size:11.5px;width:100%}
-.card{background:#161a22;border:1px solid #252c38;border-radius:9px;padding:11px;margin-bottom:11px}
-.sec{font-size:10.5px;color:#6b7480;letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
-.banner{padding:9px 11px;border-radius:8px;font-size:12px;margin-bottom:11px;line-height:1.6}
-.banner.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);color:#fca5a5}
-.banner.ok{background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.3);color:#86efac}
-.banner.warn{background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.32);color:#fcd34d}
-.kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.045)}
+.sel{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;width:100%}
+.sel:focus{outline:none;border-color:var(--primary)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px;margin-bottom:11px}
+.sec{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;margin-bottom:8px}
+.banner{padding:10px 12px;border-radius:10px;font-size:12px;margin-bottom:11px;line-height:1.65}
+.banner.err{background:var(--danger-soft);border:1px solid #f3b9bb;color:#a3282c}
+.banner.ok{background:var(--ok-soft);border:1px solid #b4e2c8;color:#0f6b3a}
+.banner.warn{background:var(--warn-soft);border:1px solid #f0d9a8;color:#8a5706}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid #f0f3f9}
 .kv:last-child{border-bottom:none}
-.kv span:first-child{color:#6b7480;flex:0 0 auto}
+.kv span:first-child{color:var(--muted);flex:0 0 auto}
 .kv span:last-child{text-align:right;font-weight:600;word-break:break-all}
-.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;margin:0 4px 4px 0}
-.pill.i{background:rgba(59,130,246,.16);color:#93c5fd}
-.pill.r{background:rgba(239,68,68,.16);color:#fca5a5}
-.pill.s{background:rgba(167,139,250,.16);color:#c4b5fd}
-.pill.t{background:rgba(34,197,94,.14);color:#86efac}
-.cand{border:1px solid #252c38;border-radius:8px;background:#1c212b;margin-bottom:9px;overflow:hidden}
-.cand.rec{border-color:rgba(34,197,94,.55)}
-.cand.rej{opacity:.5;border-color:rgba(239,68,68,.4)}
-.ch{display:flex;gap:6px;align-items:center;padding:7px 9px;border-bottom:1px solid #252c38;flex-wrap:wrap;font-size:11px}
-.tag{padding:2px 7px;border-radius:5px;background:#2a3342;color:#c6d0dd}
-.tag.st{background:rgba(167,139,250,.16);color:#c4b5fd}
-.tag.ok{background:rgba(34,197,94,.15);color:#86efac}
-.tag.rv{background:rgba(245,158,11,.16);color:#fcd34d}
-.tag.rj{background:rgba(239,68,68,.16);color:#fca5a5}
-.cb{padding:9px 10px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
-.cb.zh{border-top:1px dashed #252c38;color:#9fb0c4;font-size:11.5px}
-.cf{display:flex;gap:5px;padding:7px 9px;border-top:1px solid #252c38;flex-wrap:wrap;align-items:center;background:rgba(0,0,0,.15)}
-.vio{margin:0 9px 8px;padding:7px 9px;border-radius:6px;background:rgba(245,158,11,.08);
-  border-left:3px solid #f59e0b;font-size:11.5px;line-height:1.6}
-.vio.blk{background:rgba(239,68,68,.08);border-left-color:#ef4444}
-.tiny{font-size:11px;color:#6b7480;line-height:1.6}
-.empty{text-align:center;padding:28px 12px;color:#6b7480;font-size:12px;line-height:1.8}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;margin:0 4px 4px 0;font-weight:600}
+.pill.i{background:var(--primary-soft);color:#2456d6}
+.pill.r{background:var(--danger-soft);color:var(--danger)}
+.pill.s{background:#f1ecff;color:#6b46c1}
+.pill.t{background:var(--ok-soft);color:#0f6b3a}
+.cand{border:1px solid var(--border);border-radius:11px;background:var(--card);margin-bottom:10px;overflow:hidden}
+.cand.rec{border-color:#8fd3ae;box-shadow:0 0 0 2px var(--ok-soft)}
+.cand.rej{opacity:.55;border-color:#f3b9bb}
+.ch{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);flex-wrap:wrap;font-size:11px}
+.tag{padding:2px 8px;border-radius:6px;background:#f0f3f9;color:#556070}
+.tag.st{background:#f1ecff;color:#6b46c1}
+.tag.ok{background:var(--ok-soft);color:#0f6b3a}
+.tag.rv{background:var(--warn-soft);color:var(--warn)}
+.tag.rj{background:var(--danger-soft);color:var(--danger)}
+.cb{padding:10px 11px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.cb.zh{border-top:1px dashed var(--border);color:#5b6472;font-size:11.5px;background:#fafbfe}
+.cf{display:flex;gap:5px;padding:8px 10px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;background:#fafbfe}
+.vio{margin:0 10px 9px;padding:8px 10px;border-radius:8px;background:var(--warn-soft);
+  border-left:3px solid #f0a020;font-size:11.5px;line-height:1.6;color:#8a5706}
+.vio.blk{background:var(--danger-soft);border-left-color:var(--danger);color:#a3282c}
+.tiny{font-size:11px;color:var(--muted);line-height:1.6}
+.empty{text-align:center;padding:30px 14px;color:var(--muted);font-size:12px;line-height:1.9}
 /* 政策依据 */
-.ev{background:#1c212b;border:1px solid #252c38;border-radius:7px;padding:8px 10px;margin-bottom:7px}
-.ev .evt{font-weight:600;font-size:12px;color:#c9d4e0;margin-bottom:3px}
-.ev .evs{font-size:11.5px;color:#98a2b3;line-height:1.6}
-.ev .evm{font-size:10px;color:#6b7480;margin-top:5px}
-.pv{max-height:96px;overflow-y:auto;background:#11151c;border:1px solid #252c38;border-radius:7px;
-  padding:7px 8px;font-size:11.5px;color:#9fb0c4;white-space:pre-wrap;line-height:1.6}
-.fab{position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;z-index:2147483645;
-  background:linear-gradient(135deg,#3b82f6,#a78bfa);color:#fff;border:none;cursor:pointer;
-  font-weight:800;font-size:12px;box-shadow:0 4px 16px rgba(59,130,246,.45)}
+.ev{background:#fafbfe;border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:8px}
+.ev .evt{font-weight:600;font-size:12px;color:var(--text);margin-bottom:3px}
+.ev .evs{font-size:11.5px;color:#5b6472;line-height:1.65}
+.ev .evm{font-size:10px;color:var(--muted);margin-top:5px}
+.pv{max-height:96px;overflow-y:auto;background:#fafbfe;border:1px solid var(--border);border-radius:9px;
+  padding:8px 9px;font-size:11.5px;color:#5b6472;white-space:pre-wrap;line-height:1.6}
+.fab{position:fixed;right:16px;bottom:16px;width:46px;height:46px;border-radius:50%;z-index:2147483645;
+  background:var(--primary);color:#fff;border:none;cursor:pointer;
+  font-weight:800;font-size:12px;box-shadow:0 6px 18px rgba(47,107,255,.4)}
 .fab.hidden{display:none}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
-.dot.on{background:#22c55e}.dot.off{background:#ef4444}
+.dot.on{background:var(--ok)}.dot.off{background:var(--danger)}
+/* ---------- 首次配置：输入自己的 API Key（替代原项目的登录界面） ---------- */
+.setup{padding:2px}
+.setup-hero{text-align:center;padding:14px 0 14px}
+.setup-hero .big{font-size:36px;line-height:1}
+.setup-hero h3{margin:12px 0 5px;font-size:15px;color:var(--text)}
+.setup-hero p{margin:0;font-size:11.5px;color:var(--muted);line-height:1.75}
+.fld{display:block;margin-bottom:12px}
+.fld .lb{display:block;font-size:11.5px;color:#5b6472;margin-bottom:5px;font-weight:600}
+.fld input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;
+  font-family:inherit;background:var(--card);color:var(--text)}
+.fld input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.fld .hint{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.6}
+.steps{counter-reset:s;padding:0;margin:0;list-style:none}
+.steps li{position:relative;padding:0 0 9px 20px;font-size:11.5px;color:#5b6472;line-height:1.65}
+.steps li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;
+  width:14px;height:14px;border-radius:50%;background:var(--primary-soft);color:#2456d6;
+  font-size:9px;font-weight:700;display:grid;place-items:center}
 `;
 
   /* ---------------- 面板 ---------------- */
@@ -165,6 +196,8 @@
       h('span', { class: 'dot off', id: 'st' }),
       h('span', { class: 'tiny', id: 'stt', text: '未连接' }),
       h('span', { style: 'flex:1' }),
+      h('button', { class: 'btn sm', text: '🔑', title: '模型 / API Key 设置',
+        onclick: () => { state.setupMode = true; state.setupFirstRun = false; render(); } }),
       h('button', { class: 'btn sm', text: '⚙', title: '重新拾取选择器', onclick: () => openPickerMenu() })
     ]);
     ft.querySelector('#st').id = 'st';
@@ -254,7 +287,164 @@
     }
   }
 
+  /* ---------------- 模型配置界面（替代传统"登录"） ----------------
+     设计意图：别人拿到这个扩展，像用 Codex / DSH 一样填入自己的
+     百度千帆 API Key 就能用，不需要我们发账号，也不需要任何登录。
+     Key 走本地服务 DPAPI 加密保存，界面上永不回显。 */
+  function renderSetup() {
+    body.innerHTML = '';
+    const box = h('div', { class: 'setup' });
+    const m = state.model || {};
+    const first = state.setupFirstRun;
+
+    const hero = h('div', { class: 'setup-hero' });
+    hero.appendChild(h('div', { class: 'big', text: '🧵' }));
+    hero.appendChild(h('h3', { text: first ? '配置你的 API Key' : '模型设置' }));
+    hero.appendChild(h('p', {
+      html: first
+        ? '填入你自己的百度千帆 API Key 即可开始使用。<br>Key 用 Windows DPAPI 加密后只存本机，<b>不上传、不回显</b>。'
+        : '修改后立即生效。API Key 留空表示不改动。'
+    }));
+    box.appendChild(hero);
+
+    // 当前状态
+    const sc = h('div', { class: 'card' });
+    sc.appendChild(h('div', { class: 'sec', text: '当前状态' }));
+    sc.appendChild(h('div', { class: 'kv' }, [
+      h('span', { text: 'API Key' }),
+      h('span', { html: m.has_key
+        ? '<span style="color:var(--ok)">已配置</span>'
+        : '<span style="color:var(--warn)">未配置</span>' })
+    ]));
+    if (m.has_key && m.key_fingerprint) {
+      sc.appendChild(h('div', { class: 'kv' }, [h('span', { text: '指纹' }), h('span', { text: m.key_fingerprint })]));
+    }
+    sc.appendChild(h('div', { class: 'kv' }, [
+      h('span', { text: '生效模式' }),
+      h('span', { text: m.mode === 'model' ? '外部大模型' : '本地规则引擎' })
+    ]));
+    box.appendChild(sc);
+
+    // 表单
+    const fc = h('div', { class: 'card' });
+    fc.appendChild(h('div', { class: 'sec', text: first ? '填入 API Key' : '修改配置' }));
+
+    const ki = h('input', { type: 'password', autocomplete: 'off',
+      placeholder: m.has_key ? '已配置（留空则不改动）' : '粘贴你的 API Key' });
+    const kf = h('label', { class: 'fld' });
+    kf.appendChild(h('span', { class: 'lb', text: '百度千帆 API Key' }));
+    kf.appendChild(ki);
+    kf.appendChild(h('div', { class: 'hint', html:
+      '控制台 → 千帆 ModelBuilder → 模型服务 → API Key。' +
+      '<span id="setupToggle" style="color:var(--primary);cursor:pointer">显示明文</span>' }));
+    fc.appendChild(kf);
+
+    const mi = h('input', { type: 'text', placeholder: 'ernie-4.0-8k-latest' });
+    mi.value = m.model || '';
+    const mf = h('label', { class: 'fld' });
+    mf.appendChild(h('span', { class: 'lb', text: '模型名' }));
+    mf.appendChild(mi);
+    fc.appendChild(mf);
+
+    const ei = h('input', { type: 'text', placeholder: 'https://qianfan.baidubce.com/v2' });
+    ei.value = m.endpoint || '';
+    const ef = h('label', { class: 'fld' });
+    ef.appendChild(h('span', { class: 'lb', text: '接口地址（一般不用改）' }));
+    ef.appendChild(ei);
+    fc.appendChild(ef);
+
+    const btn = h('button', { class: 'btn pri', text: first ? '保存并开始使用' : '保存' });
+    const msgEl = h('div', { class: 'tiny', style: 'margin-top:9px' });
+    btn.onclick = () => saveConfig(ki, mi, ei, btn, msgEl);
+
+    const row = h('div', { class: 'row' }, [btn]);
+    if (!first) {
+      const back = h('button', { class: 'btn', text: '返回' });
+      back.onclick = () => { state.setupMode = false; render(); renderFooterButtons(); };
+      row.appendChild(back);
+      const clr = h('button', { class: 'btn dan', text: '清除 Key' });
+      clr.onclick = async () => {
+        clr.disabled = true;
+        const r = await msg('config-save', { api_key: '' });
+        clr.disabled = false;
+        if (r && r.ok) { state.model = (r.data && r.data.model) || null; toast('已清除 API Key'); renderSetup(); }
+        else { toast('清除失败', false); }
+      };
+      row.appendChild(clr);
+    }
+    fc.appendChild(row);
+    fc.appendChild(msgEl);
+    box.appendChild(fc);
+
+    if (first) {
+      const ul = h('ul', { class: 'steps' });
+      ['登录百度智能云控制台',
+       '进入「千帆 ModelBuilder」→「模型服务」→「API Key」',
+       '新建或复制一个 API Key（形如 bce-v3-...）',
+       '粘贴到上面，点「保存并开始使用」'
+      ].forEach(function (t) { ul.appendChild(h('li', { text: t })); });
+      const tips = h('div', { class: 'card' });
+      tips.appendChild(h('div', { class: 'sec', text: '怎么拿到 API Key' }));
+      tips.appendChild(ul);
+      tips.appendChild(h('div', { class: 'tiny', html:
+        '没有 Key 也能用：系统会走本地规则引擎出话术，只是不调用大模型。<br>' +
+        '随时可从底部 <b>🔑</b> 按钮回到这里配置。' }));
+      box.appendChild(tips);
+    }
+
+    body.appendChild(box);
+
+    const tg = box.querySelector('#setupToggle');
+    if (tg) {
+      tg.onclick = function () {
+        const show = ki.type === 'password';
+        ki.type = show ? 'text' : 'password';
+        tg.textContent = show ? '隐藏' : '显示明文';
+      };
+    }
+  }
+
+  async function saveConfig(ki, mi, ei, btn, msgEl) {
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = '保存中…';
+    msgEl.textContent = '';
+
+    const payload = { provider: 'qianfan' };
+    if (ki.value.trim()) payload.api_key  = ki.value.trim();
+    if (mi.value.trim()) payload.model    = mi.value.trim();
+    if (ei.value.trim()) payload.endpoint = ei.value.trim();
+
+    const res = await msg('config-save', payload);
+    btn.disabled = false;
+    btn.textContent = old;
+
+    if (!res || !res.ok) {
+      msgEl.innerHTML = '<span style="color:var(--danger)">保存失败：' +
+        esc((res && res.error) || '未知错误') + '</span>';
+      return;
+    }
+    state.model = (res.data && res.data.model) || state.model;
+    ki.value = '';   // 关键：保存后立刻清空输入框，不在界面上留着密钥
+    msgEl.innerHTML = '<span style="color:var(--ok)">✓ ' +
+      esc(((res.data && res.data.changed) || []).join('，') || '已保存') + '</span>';
+
+    if (state.setupFirstRun) {
+      state.setupFirstRun = false;
+      state.setupMode = false;
+      render();
+      renderFooterButtons();
+      toast('配置完成，开始使用');
+      setTimeout(() => { if (state.serverOk) analyze(); }, 300);
+    } else {
+      renderSetup();
+    }
+  }
+
   function renderInner() {
+    // 模型未配置（或用户主动打开设置）→ 进配置界面。
+    // 这就是传统"登录界面"的替代：没有账号密码，只有自己的 API Key。
+    if (state.setupMode) { renderSetup(); return; }
 
     // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
@@ -707,14 +897,22 @@
     const hp = await msg('health');
     state.serverOk = !!(hp && hp.ok);
     if (!state.serverOk) state.serverMsg = (hp && hp.error) || '';
+    if (state.serverOk && hp.data) state.model = hp.data.model || null;
     setStatus(state.serverOk, state.serverOk ? '已连接' : '未连接');
+
+    // 没配 API Key → 视为首次使用，直接进配置界面（替代登录）。
+    // 不强制：用户也可以关掉它用本地规则引擎，所以只提示不阻断。
+    if (state.serverOk && state.model && !state.model.has_key) {
+      state.setupMode = true;
+      state.setupFirstRun = true;
+    }
 
     render();
     renderFooterButtons();
     setVisible(true);
 
-    // 首次自动读一次
-    setTimeout(() => { if (state.serverOk) analyze(); }, 600);
+    // 首次自动读一次（配置界面下不需要）
+    setTimeout(() => { if (state.serverOk && !state.setupMode) analyze(); }, 600);
 
     // 监听 URL 变化（SPA 路由切换）
     let lastUrl = location.href;

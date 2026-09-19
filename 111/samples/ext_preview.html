@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>扩展面板预览（浅色）</title>
+<style>
+
+:root{--panelw:392px;
+  --bg:#f3f6fb;--card:#ffffff;--primary:#2f6bff;--primary-soft:#eaf0ff;
+  --danger:#e5484d;--danger-soft:#fdebec;--warn:#b47207;--warn-soft:#fff6e6;
+  --ok:#18a058;--ok-soft:#e8f7ef;--info-soft:#eef4ff;
+  --text:#1f2329;--muted:#8a919f;--border:#e3e8f3;--radius:14px}
+*{box-sizing:border-box;font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+.panel{position:fixed;top:0;right:0;width:var(--panelw);height:100vh;background:var(--bg);color:var(--text);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:2147483645;
+  box-shadow:-4px 0 20px rgba(31,35,41,.08);font-size:13px;line-height:1.6}
+.panel.hidden{display:none}
+.hd{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);
+  background:linear-gradient(90deg,#1c2b4a,#27407a);color:#fff;flex:0 0 auto}
+.logo{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.16);
+  display:grid;place-items:center;font-weight:800;font-size:11px;color:#fff;flex:0 0 auto;
+  border:1px solid rgba(255,255,255,.28)}
+.ttl{font-weight:700;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.hd .btn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.3);color:#fff}
+.hd .btn:hover{background:rgba(255,255,255,.26);color:#fff}
+.bd{flex:1 1 auto;overflow-y:auto;padding:12px}
+.bd::-webkit-scrollbar{width:8px}.bd::-webkit-scrollbar-thumb{background:#cfd8e8;border-radius:4px}
+.ft{flex:0 0 auto;padding:9px 12px;border-top:1px solid var(--border);background:var(--card);display:flex;gap:6px;align-items:center}
+.btn{border:1px solid var(--border);background:var(--card);color:var(--text);padding:6px 12px;border-radius:9px;
+  cursor:pointer;font-size:12.5px;font-family:inherit;transition:all .15s ease;white-space:nowrap}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.btn.pri:hover{background:#2456d6;color:#fff}
+.btn.dan{background:var(--danger-soft);border-color:#f3b9bb;color:var(--danger)}
+.btn.dan:hover{background:#fbdcdd;color:var(--danger)}
+.btn.sm{padding:4px 9px;font-size:11.5px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sel{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;width:100%}
+.sel:focus{outline:none;border-color:var(--primary)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px;margin-bottom:11px}
+.sec{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em;margin-bottom:8px}
+.banner{padding:10px 12px;border-radius:10px;font-size:12px;margin-bottom:11px;line-height:1.65}
+.banner.err{background:var(--danger-soft);border:1px solid #f3b9bb;color:#a3282c}
+.banner.ok{background:var(--ok-soft);border:1px solid #b4e2c8;color:#0f6b3a}
+.banner.warn{background:var(--warn-soft);border:1px solid #f0d9a8;color:#8a5706}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px solid #f0f3f9}
+.kv:last-child{border-bottom:none}
+.kv span:first-child{color:var(--muted);flex:0 0 auto}
+.kv span:last-child{text-align:right;font-weight:600;word-break:break-all}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;margin:0 4px 4px 0;font-weight:600}
+.pill.i{background:var(--primary-soft);color:#2456d6}
+.pill.r{background:var(--danger-soft);color:var(--danger)}
+.pill.s{background:#f1ecff;color:#6b46c1}
+.pill.t{background:var(--ok-soft);color:#0f6b3a}
+.cand{border:1px solid var(--border);border-radius:11px;background:var(--card);margin-bottom:10px;overflow:hidden}
+.cand.rec{border-color:#8fd3ae;box-shadow:0 0 0 2px var(--ok-soft)}
+.cand.rej{opacity:.55;border-color:#f3b9bb}
+.ch{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);flex-wrap:wrap;font-size:11px}
+.tag{padding:2px 8px;border-radius:6px;background:#f0f3f9;color:#556070}
+.tag.st{background:#f1ecff;color:#6b46c1}
+.tag.ok{background:var(--ok-soft);color:#0f6b3a}
+.tag.rv{background:var(--warn-soft);color:var(--warn)}
+.tag.rj{background:var(--danger-soft);color:var(--danger)}
+.cb{padding:10px 11px;font-size:12.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.cb.zh{border-top:1px dashed var(--border);color:#5b6472;font-size:11.5px;background:#fafbfe}
+.cf{display:flex;gap:5px;padding:8px 10px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;background:#fafbfe}
+.vio{margin:0 10px 9px;padding:8px 10px;border-radius:8px;background:var(--warn-soft);
+  border-left:3px solid #f0a020;font-size:11.5px;line-height:1.6;color:#8a5706}
+.vio.blk{background:var(--danger-soft);border-left-color:var(--danger);color:#a3282c}
+.tiny{font-size:11px;color:var(--muted);line-height:1.6}
+.empty{text-align:center;padding:30px 14px;color:var(--muted);font-size:12px;line-height:1.9}
+/* 政策依据 */
+.ev{background:#fafbfe;border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:8px}
+.ev .evt{font-weight:600;font-size:12px;color:var(--text);margin-bottom:3px}
+.ev .evs{font-size:11.5px;color:#5b6472;line-height:1.65}
+.ev .evm{font-size:10px;color:var(--muted);margin-top:5px}
+.pv{max-height:96px;overflow-y:auto;background:#fafbfe;border:1px solid var(--border);border-radius:9px;
+  padding:8px 9px;font-size:11.5px;color:#5b6472;white-space:pre-wrap;line-height:1.6}
+.fab{position:fixed;right:16px;bottom:16px;width:46px;height:46px;border-radius:50%;z-index:2147483645;
+  background:var(--primary);color:#fff;border:none;cursor:pointer;
+  font-weight:800;font-size:12px;box-shadow:0 6px 18px rgba(47,107,255,.4)}
+.fab.hidden{display:none}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px}
+.dot.on{background:var(--ok)}.dot.off{background:var(--danger)}
+/* ---------- 首次配置：输入自己的 API Key（替代原项目的登录界面） ---------- */
+.setup{padding:2px}
+.setup-hero{text-align:center;padding:14px 0 14px}
+.setup-hero .big{font-size:36px;line-height:1}
+.setup-hero h3{margin:12px 0 5px;font-size:15px;color:var(--text)}
+.setup-hero p{margin:0;font-size:11.5px;color:var(--muted);line-height:1.75}
+.fld{display:block;margin-bottom:12px}
+.fld .lb{display:block;font-size:11.5px;color:#5b6472;margin-bottom:5px;font-weight:600}
+.fld input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;
+  font-family:inherit;background:var(--card);color:var(--text)}
+.fld input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.fld .hint{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.6}
+.steps{counter-reset:s;padding:0;margin:0;list-style:none}
+.steps li{position:relative;padding:0 0 9px 20px;font-size:11.5px;color:#5b6472;line-height:1.65}
+.steps li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;
+  width:14px;height:14px;border-radius:50%;background:var(--primary-soft);color:#2456d6;
+  font-size:9px;font-weight:700;display:grid;place-items:center}
+
+body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+.wrap{display:flex;gap:22px;align-items:flex-start;justify-content:center}
+.preview-label{font-size:12px;font-weight:700;color:#5b6472;margin:0 0 9px 2px;letter-spacing:.04em}
+.panel{width:392px}
+</style></head><body>
+<div class="wrap">
+  <div>
+    <div class="preview-label">① 首次使用 · 配置 API Key（替代登录界面）</div>
+    
+  <div class="panel" style="position:relative;height:760px;border-radius:16px;overflow:hidden;
+       box-shadow:0 10px 40px rgba(31,35,41,.16);border:1px solid #e3e8f3">
+    <div class="hd">
+      <div class="logo">AI</div>
+      <div class="ttl">跨境售后话术助手</div>
+      <button class="btn sm">—</button>
+    </div>
+    <div class="bd">
+<div class="setup">
+  <div class="setup-hero">
+    <div class="big">🧵</div>
+    <h3>配置你的 API Key</h3>
+    <p>填入你自己的百度千帆 API Key 即可开始使用。<br>Key 用 Windows DPAPI 加密后只存本机，<b>不上传、不回显</b>。</p>
+  </div>
+  <div class="card">
+    <div class="sec">当前状态</div>
+    <div class="kv"><span>API Key</span><span><span style="color:var(--warn)">未配置</span></span></div>
+    <div class="kv"><span>生效模式</span><span>本地规则引擎</span></div>
+  </div>
+  <div class="card">
+    <div class="sec">填入 API Key</div>
+    <label class="fld"><span class="lb">百度千帆 API Key</span>
+      <input type="password" value="bce-v3-xxxxxxxxxxxxxxxxxxxx" />
+      <div class="hint">控制台 → 千帆 ModelBuilder → 模型服务 → API Key。<span style="color:var(--primary);cursor:pointer">显示明文</span></div>
+    </label>
+    <label class="fld"><span class="lb">模型名</span><input type="text" placeholder="ernie-4.0-8k-latest" /></label>
+    <label class="fld"><span class="lb">接口地址（一般不用改）</span><input type="text" placeholder="https://qianfan.baidubce.com/v2" /></label>
+    <div class="row"><button class="btn pri">保存并开始使用</button></div>
+    <div class="tiny" style="margin-top:9px"></div>
+  </div>
+  <div class="card">
+    <div class="sec">怎么拿到 API Key</div>
+    <ul class="steps">
+      <li>登录百度智能云控制台</li>
+      <li>进入「千帆 ModelBuilder」→「模型服务」→「API Key」</li>
+      <li>新建或复制一个 API Key（形如 bce-v3-...）</li>
+      <li>粘贴到上面，点「保存并开始使用」</li>
+    </ul>
+    <div class="tiny">没有 Key 也能用：系统会走本地规则引擎出话术，只是不调用大模型。<br>随时可从底部 <b>🔑</b> 按钮回到这里配置。</div>
+  </div>
+</div></div>
+    <div class="ft">
+      <span class="dot on"></span>
+      <span class="tiny">已连接</span>
+      <span style="flex:1"></span>
+      <button class="btn sm">🔑</button>
+      <button class="btn sm">⚙</button>
+    </div>
+  </div>
+  </div>
+  <div>
+    <div class="preview-label">② 正常工作 · 浅色面板</div>
+    
+  <div class="panel" style="position:relative;height:760px;border-radius:16px;overflow:hidden;
+       box-shadow:0 10px 40px rgba(31,35,41,.16);border:1px solid #e3e8f3">
+    <div class="hd">
+      <div class="logo">AI</div>
+      <div class="ttl">跨境售后话术助手</div>
+      <button class="btn sm">—</button>
+    </div>
+    <div class="bd">
+<div class="banner ok">✓ 已连接本地服务 http://127.0.0.1:8799</div>
+<div class="banner err"><b>⚠ 高风险案件</b>（紧急度极高）<br>回复前请核对下方政策依据，避免口径与该国法规或平台规则冲突。</div>
+<div class="card">
+  <div class="sec">操作</div>
+  <div class="row">
+    <button class="btn pri">读取并生成话术</button>
+    <button class="btn">▶ 自动监听</button>
+    <button class="btn sm">↻</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <select class="sel" style="flex:1"><option>西班牙</option></select>
+    <select class="sel" style="flex:1"><option>英文</option></select>
+  </div>
+</div>
+<div class="card">
+  <div class="sec">当前平台</div>
+  <div class="kv"><span>适配器</span><span>通用（自动识别）</span></div>
+  <div class="kv"><span>消息区识别</span><span>启发式自动识别</span></div>
+  <div class="kv"><span>读取到</span><span>8 条消息</span></div>
+</div>
+<div class="card">
+  <div class="sec">意图 / 情绪 / 紧急度</div>
+  <div><span class="pill i">质量投诉 96%</span></div>
+  <div class="kv"><span>情绪</span><span>negative / 强度 4</span></div>
+  <div class="kv"><span>紧急度</span><span><span style="color:#e5484d">critical</span></span></div>
+  <div class="kv"><span>知识覆盖</span><span>sufficient</span></div>
+  <div><span class="pill r">平台介入风险</span></div>
+</div>
+<div class="card">
+  <div class="sec">政策依据（1 条）</div>
+  <div class="ev">
+    <div class="evt">西班牙商品瑕疵救济顺位</div>
+    <div class="evs">买方主张瑕疵救济时，商家应先修理或更换；不能履行时可要求减价或解除合同。</div>
+    <div class="evm">ES-TRLGDCU-118 · ES · 生效 2014-03-27 · 匹配 0.87</div>
+  </div>
+</div>
+<div class="sec" style="margin:2px 0 8px">候选话术（3 条）</div>
+<div class="cand rec">
+  <div class="ch"><span class="tag st">安抚致歉</span><span class="tag ok">★ 推荐</span><span class="tag ok">✓ 合规</span></div>
+  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us. You may choose a full refund or a replacement, and shipping is covered either way.</div>
+  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了，这是我们的责任。您可以选择全额退款或我们重新补发一件，两种方式的运费都由我们承担。</div>
+  <div class="cf"><button class="btn sm pri">⤵ 插入输入框</button><button class="btn sm">📋 复制</button><button class="btn sm">✓ 采纳</button></div>
+</div>
+<div class="cand">
+  <div class="ch"><span class="tag st">专业答疑</span><span class="tag rv">⚠ 需修订</span></div>
+  <div class="cb">We are very sorry the quality issue caused you trouble. This is on us…</div>
+  <div class="cb zh">非常抱歉，这件商品的质量问题给您添麻烦了…</div>
+  <div class="vio"><b>[R018]</b> 欧盟订单须体现 14 天无理由退货权<br>命中：<b>退款</b><br>建议：补充"14 天内可无理由退货"的说明</div>
+</div></div>
+    <div class="ft">
+      <span class="dot on"></span>
+      <span class="tiny">已连接</span>
+      <span style="flex:1"></span>
+      <button class="btn sm">🔑</button>
+      <button class="btn sm">⚙</button>
+    </div>
+  </div>
+  </div>
+</div>
+</body></html>

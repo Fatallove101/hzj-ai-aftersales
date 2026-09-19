@@ -280,6 +280,63 @@ function renderSettings() {
       kb.appendChild(kv('更新时间', esc(m.key_updated_at || '')));
     }
     kb.appendChild(kv('存储位置', '<span style="font-size:11px">' + esc(m.key_store || '') + '</span>'));
+
+    // 直接在界面里填自己的 API Key —— 别人拿到本项目后无需改文件、无需命令行
+    const inp = el('input', 'sel');
+    inp.type = 'password';
+    inp.autocomplete = 'off';
+    inp.style.marginTop = '10px';
+    inp.placeholder = m.has_key ? '已配置（留空则不改动）' : '粘贴你的百度千帆 API Key（bce-v3-…）';
+    kb.appendChild(inp);
+
+    const msgEl = el('div', 'hint', '');
+    const row = el('div', 'row');
+    row.style.marginTop = '9px';
+
+    const bs = el('button', 'btn primary sm', '保存');
+    bs.onclick = async () => {
+      const v = inp.value.trim();
+      if (!v) { msgEl.innerHTML = '<span style="color:var(--warn)">请先填入 Key</span>'; return; }
+      bs.disabled = true; bs.textContent = '保存中…';
+      try {
+        const r = await fetch('/api/config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: v, provider: 'qianfan' })
+        }).then(x => x.json());
+        if (!r.ok) {
+          msgEl.innerHTML = '<span style="color:var(--bad)">' + esc(r.error || '保存失败') + '</span>';
+        } else {
+          inp.value = '';   // 存完立刻清空，不在页面上留着密钥
+          msgEl.innerHTML = '<span style="color:var(--ok)">✓ ' + esc((r.changed || []).join('，')) +
+                            ' · 指纹 ' + esc(r.model.key_fingerprint || '') + '</span>';
+          toast('API Key 已保存（DPAPI 加密）');
+          health();
+        }
+      } catch (e) {
+        msgEl.innerHTML = '<span style="color:var(--bad)">' + esc(e.message) + '</span>';
+      }
+      bs.disabled = false; bs.textContent = '保存';
+    };
+    row.appendChild(bs);
+
+    const bc = el('button', 'btn ghost sm', '清除 Key');
+    bc.onclick = async () => {
+      bc.disabled = true;
+      try {
+        const r = await fetch('/api/config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: '' })
+        }).then(x => x.json());
+        if (r.ok) { toast('已清除 API Key'); await health(); renderSettings(); }
+        else { toast(r.error || '清除失败', false); }
+      } catch (e) { toast(e.message, false); }
+      bc.disabled = false;
+    };
+    row.appendChild(bc);
+    kb.appendChild(row);
+    kb.appendChild(msgEl);
+    kb.appendChild(el('div', 'hint',
+      '🔒 Key 用 Windows DPAPI 加密后只存本机，接口永不回显。获取方式：百度智能云 → 千帆 ModelBuilder → 模型服务 → API Key。'));
   }
 
   const rd = $('#setReaders');
