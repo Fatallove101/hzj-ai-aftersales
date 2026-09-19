@@ -130,6 +130,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
 
+        case 'knowledge': {
+          // GET 读状态；带 payload 则是 POST 保存/测试
+          const body = msg.payload && Object.keys(msg.payload).length ? msg.payload : null;
+          const data = await callServer('/api/knowledge', body
+            ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+            : { method: 'GET' });
+          sendResponse({ ok: true, data });
+          break;
+        }
+
+        case 'rules': {
+          const rbody = msg.payload && Object.keys(msg.payload).length ? msg.payload : null;
+          const rdata = await callServer('/api/custom-rules', rbody
+            ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rbody) }
+            : { method: 'GET' });
+          sendResponse({ ok: true, data: rdata });
+          break;
+        }
+
         case 'retranslate': {
           // 回译：中文（坐席改过的）→ 客户语言，用于"修改后采纳"同步外文
           const data = await callServer('/api/retranslate', {

@@ -373,6 +373,18 @@ try {
     }
     T.state.view = 'main';
 
+    // 再跑一遍「设置」视图
+    T.state.view = 'settings';
+    T.render();
+    const setTexts = collectText(context.document.documentElement).join('\n');
+    if (!setTexts.includes('生效模式') || !setTexts.includes('知识源') || !setTexts.includes('自定义禁用表述')) {
+      console.log('  ✕ 「设置」视图渲染不完整');
+      failed++;
+    } else {
+      console.log('  ✓ 「设置」视图渲染正常（生效模式 / 知识源 / 自定义禁用表述）');
+    }
+    T.state.view = 'main';
+
     // 再跑一遍「生成中」状态（新增的进度分支）
     T.state.busy = true;
     T.state.busySince = Date.now() - 12000;

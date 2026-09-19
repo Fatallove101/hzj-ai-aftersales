@@ -1,4 +1,4 @@
-/* =====================================================================
+﻿/* =====================================================================
    content.js  ·  侧边栏主体
    在客服后台右侧注入一个面板：读取对话 → 生成话术 → 一键插入输入框
    用 Shadow DOM 隔离样式，避免与宿主页面互相污染。
@@ -376,6 +376,14 @@
    但 CSS 里**从头到尾没定义过** —— 于是走浏览器默认样式：白底 + 深色边框，
    在浅色面板里非常突兀（用户反馈"颜色较深有点突兀"）。
    这里按网页版一致的规格补上：淡底、浅描边、圆角、铺满宽度。 */
+/* 自定义规则条目（对应网页版 .ruleitem）——
+   新增的设置页要用，但扩展的 CSS 里没有，被 class 完整性检查抓出来了 */
+.ruleitem{
+  display:flex; align-items:center; gap:9px;
+  background:#f7f9fd; border:1px solid var(--border); border-radius:10px;
+  padding:9px 11px; margin-top:8px;
+}
+.ruleitem .tiny{margin-top:3px;font-family:Consolas,monospace;word-break:break-all}
 .rawtext{
   width:100%; box-sizing:border-box; min-height:96px; resize:vertical;
   background:#fafbfe; color:#5b6472;
@@ -458,7 +466,9 @@
         onclick: () => popView() }),
       h('button', { class: 'btn sm', text: '🔑', title: '模型 / API Key 设置',
         onclick: () => pushView('setup') }),
-      h('button', { class: 'btn sm', text: '⚙', title: '重新拾取选择器', onclick: () => pushView('picker') })
+      h('button', { class: 'btn sm', text: '⌖', title: '重新拾取选择器', onclick: () => pushView('picker') }),
+      h('button', { class: 'btn sm', text: '⚙', title: '设置（知识源 / 自定义规则）',
+        onclick: () => pushView('settings') })
     ]);
     // （原来这里还有两行 ft.querySelector('#st').id = 'st' —— 纯多余，
     //   h() 里的 id 已经通过 setAttribute 设好了，删掉）
@@ -1045,6 +1055,7 @@
     if (state.view === 'setup') { renderSetup(); return; }
     if (state.view === 'edit') { renderEdit(); return; }
     if (state.view === 'picker') { renderPicker(); return; }
+    if (state.view === 'settings') { renderSettings(); return; }
 
     // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
@@ -1653,6 +1664,196 @@
        1. 改名 renderPicker，只负责画内容，视图切换交给 pushView
        2. candsBd -> body
        3. 去掉重复的「← 返回」按钮（页脚已有固定位置的返回键） */
+  /* ---------------- 设置（对应网页版的「设置」页） ----------------
+     与网页版保持一致，但**不含 API Key 部分** —— 那部分已经由页脚 🔑 单独承载。
+     三块：生效模式 / 知识源 / 自定义禁用表述。 */
+  function renderSettings() {
+    body.innerHTML = '';
+
+    // ---- ① 生效模式 ----
+    const cardM = h('div', { class: 'card' }, [
+      h('div', { class: 'sec', text: '生效模式' }),
+      h('div', { class: 'tiny', id: 'setModelBody', text: '加载中…' })
+    ]);
+    body.appendChild(cardM);
+
+    // ---- ② 知识源 ----
+    const cardK = h('div', { class: 'card' }, [
+      h('div', { class: 'sec', text: '知识源' }),
+      h('div', { class: 'tiny', id: 'setKbBody', text: '加载中…' })
+    ]);
+    body.appendChild(cardK);
+
+    // ---- ③ 自定义禁用表述 ----
+    const cardR = h('div', { class: 'card' }, [
+      h('div', { class: 'sec', text: '自定义禁用表述' }),
+      h('div', { class: 'tiny', text: '命中的话术会被标记为需修订或直接拦截，可与内置规则叠加。' }),
+      h('div', { class: 'tiny', id: 'setRulesBody', text: '加载中…' })
+    ]);
+    body.appendChild(cardR);
+
+    loadModelSection();
+    loadKbSection();
+    loadRulesSection();
+  }
+
+  function kvRow(k, v) {
+    return h('div', { class: 'kv' }, [
+      h('span', { text: k }),
+      h('span', { html: v })
+    ]);
+  }
+
+  async function loadModelSection() {
+    const el2 = shadow.querySelector('#setModelBody');
+    if (!el2) return;
+    const res = await msg('health');
+    const m = (res && res.ok && res.data && res.data.model) || null;
+    el2.innerHTML = '';
+    if (!m) { el2.textContent = '读不到（本地服务未启动？）'; return; }
+    el2.appendChild(kvRow('生效模式', m.mode === 'model'
+      ? '<span style="color:var(--ok)">外部模型</span>' : '本地规则引擎'));
+    el2.appendChild(kvRow('provider', esc(m.provider || 'local')));
+    el2.appendChild(kvRow('模型名', esc(m.model || '（未设置）')));
+    el2.appendChild(kvRow('接口地址', m.endpoint_set ? '已设置' : '（未设置）'));
+    el2.appendChild(h('div', { class: 'tiny', style: 'margin-top:6px', html:
+      '密钥相关请用页脚 <b>🔑</b>。' }));
+  }
+
+  async function loadKbSection() {
+    const el2 = shadow.querySelector('#setKbBody');
+    if (!el2) return;
+    const res = await msg('knowledge');
+    const k = (res && res.ok && res.data && res.data.knowledge) || null;
+    el2.innerHTML = '';
+    if (!k) { el2.textContent = '读不到知识源状态（本地服务未启动？）'; return; }
+
+    el2.appendChild(kvRow('当前生效', '<b>' + esc(k.active_label || '-') + '</b>'));
+    el2.appendChild(kvRow('本地知识库', k.local_ready ? ('✅ 就绪 · ' + k.local_count + ' 条政策') : '❌ 未加载'));
+    el2.appendChild(kvRow('千帆知识库', k.qianfan_ready ? '✅ 已配置' : '⬜ 未配置'));
+    if (k.degraded) {
+      el2.appendChild(h('div', { class: 'banner warn', text: '⚠ 已降级：' + (k.degrade_reason || '') }));
+    }
+
+    const sel = h('select', { class: 'sel', style: 'margin-top:8px' });
+    [['local', '本地 CSV 知识库（开箱即用）'], ['qianfan', '千帆知识库（MCP / AppBuilder）']]
+      .forEach(function (o) {
+        const op = h('option', { value: o[0], text: o[1] });
+        if (o[0] === k.configured) op.selected = true;
+        sel.appendChild(op);
+      });
+    const ep = h('input', { class: 'sel', style: 'margin-top:7px', placeholder: '千帆检索端点，如 http://127.0.0.1:8080/mcp/search' });
+    ep.value = k.qianfan_endpoint || '';
+    const aid = h('input', { class: 'sel', style: 'margin-top:7px', placeholder: 'AppBuilder 应用 ID（选填）' });
+    aid.value = k.qianfan_app_id || '';
+    const ds = h('input', { class: 'sel', style: 'margin-top:7px', placeholder: '知识库 / 数据集 ID（选填）' });
+    ds.value = k.qianfan_dataset || '';
+
+    const kmsg = h('div', { class: 'tiny', style: 'margin-top:7px' });
+    const row = h('div', { class: 'row', style: 'margin-top:9px' });
+
+    const bs = h('button', { class: 'btn pri sm', text: '保存' });
+    bs.onclick = async function () {
+      bs.disabled = true; bs.textContent = '保存中…';
+      const r = await msg('knowledge', {
+        provider: sel.value,
+        qianfan_endpoint: ep.value.trim(),
+        qianfan_app_id: aid.value.trim(),
+        qianfan_dataset: ds.value.trim()
+      });
+      bs.disabled = false; bs.textContent = '保存';
+      if (!r || !r.ok) { kmsg.innerHTML = '<span style="color:var(--danger)">' + esc((r && r.error) || '保存失败') + '</span>'; return; }
+      toast('已保存');
+      loadKbSection();
+    };
+    row.appendChild(bs);
+
+    const bt = h('button', { class: 'btn sm', text: '测试连接' });
+    bt.onclick = async function () {
+      bt.disabled = true; bt.textContent = '测试中…';
+      const r = await msg('knowledge', { test: true });
+      bt.disabled = false; bt.textContent = '测试连接';
+      const t = (r && r.ok && r.data && r.data.result) || {};
+      kmsg.innerHTML = t.ok
+        ? '<span style="color:var(--ok)">✓ 连接成功（' + t.latency_ms + 'ms，返回 ' + ((t.sample || []).length) + ' 条样本）</span>'
+        : '<span style="color:var(--warn)">✕ ' + esc(t.reason || (r && r.error) || '失败') + '（' + (t.latency_ms || 0) + 'ms）</span>';
+    };
+    row.appendChild(bt);
+
+    el2.appendChild(sel); el2.appendChild(ep); el2.appendChild(aid); el2.appendChild(ds);
+    el2.appendChild(row); el2.appendChild(kmsg);
+    el2.appendChild(h('div', { class: 'tiny', style: 'margin-top:6px', html:
+      '⚠ 千帆路径尚未对接真实接口，契约见 docs/接入千帆知识库.md；' +
+      '字段名不同只需改 engine/knowledge.ps1 的映射。' }));
+  }
+
+  async function loadRulesSection() {
+    const el2 = shadow.querySelector('#setRulesBody');
+    if (!el2) return;
+    const res = await msg('rules');
+    const list = (res && res.ok && res.data && res.data.rules) || [];
+    el2.innerHTML = '';
+
+    // 已有规则
+    if (!list.length) {
+      el2.appendChild(h('div', { class: 'tiny', text: '（还没有自定义规则）' }));
+    } else {
+      list.forEach(function (r) {
+        const rowR = h('div', { class: 'ruleitem' }, [
+          h('div', { style: 'flex:1' }, [
+            h('div', { style: 'font-weight:600', text: r.title || '(未命名)' }),
+            h('div', { class: 'tiny', text: (r.pattern || '') + '   ·   ' + (r.severity === 'block' ? '拦截' : '警告') + (r.valid === false ? '   ⚠ 正则有误' : '') })
+          ])
+        ]);
+        const bd = h('button', { class: 'btn sm ghost', text: '删除' });
+        bd.onclick = async function () {
+          bd.disabled = true;
+          // 字段名必须是 delete —— 服务端（和网页版）都用 delete，写 remove 会 400
+          const rr = await msg('rules', { delete: r.id });
+          if (rr && rr.ok) { toast('已删除'); loadRulesSection(); }
+          else { toast((rr && rr.error) || '删除失败', false); bd.disabled = false; }
+        };
+        rowR.appendChild(bd);
+        el2.appendChild(rowR);
+      });
+    }
+
+    // 新增表单
+    const ti = h('input', { class: 'sel', style: 'margin-top:10px', placeholder: '规则名（如：禁止概不退换）' });
+    const pi = h('input', { class: 'sel', style: 'margin-top:7px', placeholder: '关键词或正则（如：概不退换|不退不换）' });
+    const si = h('select', { class: 'sel', style: 'margin-top:7px' });
+    [['warn', '警告（标记为需修订）'], ['block', '拦截（直接判为不可发送）']].forEach(function (o) {
+      si.appendChild(h('option', { value: o[0], text: o[1] }));
+    });
+    const ri = h('input', { class: 'sel', style: 'margin-top:7px', placeholder: '原因（选填，会显示给坐席）' });
+    const gi = h('input', { class: 'sel', style: 'margin-top:7px', placeholder: '改写建议（选填）' });
+
+    const rmsg = h('div', { class: 'tiny', style: 'margin-top:7px' });
+    const ba = h('button', { class: 'btn pri sm', text: '＋ 添加规则', style: 'margin-top:9px' });
+    ba.onclick = async function () {
+      if (!pi.value.trim()) { rmsg.innerHTML = '<span style="color:var(--warn)">请填写关键词或正则</span>'; return; }
+      ba.disabled = true; ba.textContent = '添加中…';
+      const r = await msg('rules', {
+        title: ti.value.trim(), pattern: pi.value.trim(), severity: si.value,
+        reason: ri.value.trim(), suggestion: gi.value.trim()
+      });
+      ba.disabled = false; ba.textContent = '＋ 添加规则';
+      if (!r || !r.ok) { rmsg.innerHTML = '<span style="color:var(--danger)">' + esc((r && r.error) || '添加失败') + '</span>'; return; }
+      const warns = (r.data && r.data.warnings) || [];
+      if (warns.length) {
+        // 服务端会拿合规正向样本试一遍，命中说明规则过于宽泛，可能误杀正常话术
+        toast('已添加，但可能误杀', false);
+        rmsg.innerHTML = '<span style="color:var(--warn)">' + warns.map(esc).join('<br>') + '</span>';
+        loadRulesSection();
+        return;
+      }
+      toast('已添加');
+      loadRulesSection();
+    };
+
+    el2.appendChild(ti); el2.appendChild(pi); el2.appendChild(si);
+    el2.appendChild(ri); el2.appendChild(gi); el2.appendChild(ba); el2.appendChild(rmsg);
+  }
   function renderPicker() {
     const items = [
       { key: 'messageList', label: '① 拾取「消息区」容器', mode: 'list',
