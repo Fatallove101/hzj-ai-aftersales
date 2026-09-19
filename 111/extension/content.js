@@ -611,7 +611,7 @@
 
   async function readWindow(w) {
     state.busy = true; state.lastError = ''; render();
-    const res = await msg('uia', { payload: { hwnd: w.hwnd, scope: 'window' } });
+    const res = await msg('uia', { hwnd: w.hwnd, scope: 'window' });   // 注意：msg() 已包一层，这里不能再写 payload
     state.busy = false;
     if (!res || !res.ok) { state.lastError = (res && res.error) || '读窗口失败'; render(); return; }
     const t = (res.data && res.data.text) || '';
