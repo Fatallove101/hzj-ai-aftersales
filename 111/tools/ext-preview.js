@@ -108,7 +108,7 @@ function foldClosed(title, badge, inner) {
 }
 
 const mainView = `
-<div class="panes" style="height:600px">
+<div class="panes" style="height:720px">
 
   <div class="pane" id="paneChat">
     <div class="pane-hd">
@@ -190,11 +190,11 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   </div>
   <div>
     <div class="preview-label">② 三框布局：客户对话 / 候选话术 / 详情</div>
-    ${panel(mainView, { height: 700 })}
+    ${panel(mainView, { height: 830 })}
   </div>
   <div>
     <div class="preview-label">③ 悬浮小窗 · 可拖动 + 三档缩放</div>
-    ${panel(mainView, { float: true, width: 372, height: 620, label: '拖住标题栏可移动 · 停靠模式无尺寸按钮' })}
+    ${panel(mainView, { float: true, width: 372, height: 740, label: '拖住标题栏可移动 · 停靠模式无尺寸按钮' })}
   </div>
 </div>
 </body></html>`;

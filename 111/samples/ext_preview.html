@@ -112,7 +112,7 @@
 /* ② 候选话术：占剩下的全部（最大） */
 #paneCands{flex:1 1 auto;min-height:150px}
 /* ③ 详情：包住那些下拉栏 */
-#paneDetail{flex:0 0 auto;height:152px}
+#paneDetail{flex:0 0 auto;height:228px}   /* 152 × 1.5：详情里的下拉栏和折叠卡显示太小 */
 .pane-bd .card:last-child,.pane-bd .fold:last-child{margin-bottom:0}
 /* 对话气泡（客户对话框内） */
 .chatmsg{margin-bottom:9px}
@@ -236,7 +236,7 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   <div>
     <div class="preview-label">② 三框布局：客户对话 / 候选话术 / 详情</div>
     
-  <div class="panel" style="position:relative;left:0;top:0;right:auto;width:392px;height:700px;
+  <div class="panel" style="position:relative;left:0;top:0;right:auto;width:392px;height:830px;
        border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
     <div class="hd">
       <div class="logo">AI</div>
@@ -245,8 +245,8 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
       <button class="btn sm" title="切换悬浮/停靠">⇱</button>
       <button class="btn sm">—</button>
     </div>
-    <div class="bd" style="height:604px">
-<div class="panes" style="height:600px">
+    <div class="bd" style="height:734px">
+<div class="panes" style="height:720px">
 
   <div class="pane" id="paneChat">
     <div class="pane-hd">
@@ -335,7 +335,7 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
   <div>
     <div class="preview-label">③ 悬浮小窗 · 可拖动 + 三档缩放</div>
     
-  <div class="panel float" style="position:relative;left:0;top:0;right:auto;width:372px;height:620px;
+  <div class="panel float" style="position:relative;left:0;top:0;right:auto;width:372px;height:740px;
        border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
     <div class="hd">
       <div class="logo">AI</div>
@@ -344,8 +344,8 @@ body{margin:0;padding:22px;background:#eef2f9;font-family:"Segoe UI","Microsoft 
       <button class="btn sm" title="切换悬浮/停靠">⇱</button>
       <button class="btn sm">—</button>
     </div>
-    <div class="bd" style="height:524px">
-<div class="panes" style="height:600px">
+    <div class="bd" style="height:644px">
+<div class="panes" style="height:720px">
 
   <div class="pane" id="paneChat">
     <div class="pane-hd">

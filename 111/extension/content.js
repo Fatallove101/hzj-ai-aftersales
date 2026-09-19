@@ -1,4 +1,4 @@
-﻿/* =====================================================================
+/* =====================================================================
    content.js  ·  侧边栏主体
    在客服后台右侧注入一个面板：读取对话 → 生成话术 → 一键插入输入框
    用 Shadow DOM 隔离样式，避免与宿主页面互相污染。
@@ -328,7 +328,7 @@
 /* ② 候选话术：占剩下的全部（最大） */
 #paneCands{flex:1 1 auto;min-height:150px}
 /* ③ 详情：包住那些下拉栏 */
-#paneDetail{flex:0 0 auto;height:152px}
+#paneDetail{flex:0 0 auto;height:228px}   /* 152 × 1.5：详情里的下拉栏和折叠卡显示太小 */
 .pane-bd .card:last-child,.pane-bd .fold:last-child{margin-bottom:0}
 /* 对话气泡（客户对话框内） */
 .chatmsg{margin-bottom:9px}
