@@ -250,10 +250,17 @@
         <div class="card">
           <h2>API Key</h2>
           <div class="hint" style="margin-bottom:10px">
-            🔒 密钥用 Windows DPAPI 加密保存在本机，<b>不上传、不进仓库、任何接口都取不回</b>。<br>
-            配置用命令行：<code>tools\set-api-key.ps1</code>
+            🔒 密钥用 Windows DPAPI 加密保存在本机，<b>不上传、不进仓库、任何接口都取不回</b>。
           </div>
           <div id="setKey"></div>
+        </div>
+        <div class="card">
+          <h2>自定义禁用表述</h2>
+          <div class="hint" style="margin-bottom:10px">
+            给本店加自己的合规红线。填<b>关键词或正则</b>即可，命中后候选话术会被标记甚至直接拦截。
+            与内置规则走同一套检测逻辑，改完<b>立即生效</b>。
+          </div>
+          <div id="setRules"></div>
         </div>
         <div class="card">
           <h2>读取方式可用性</h2>

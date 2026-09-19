@@ -396,3 +396,10 @@ textarea:focus,.sel:focus{outline:none; border-color:var(--acc)}
   .page{padding:8px; gap:8px}
   .ctx-grid{grid-template-columns:1fr}
 }
+/* ---------- 自定义禁用表述 ---------- */
+.ruleitem{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px}
+.ruleitem .ruleid{font-size:11px; color:var(--tx3); font-family:Consolas,monospace}
+.ruleitem .ruletitle{font-size:12.5px; font-weight:600}
+.ruleitem .rulepat{font-size:11.5px; color:var(--tx2); margin-top:6px; font-family:Consolas,monospace;
+  background:var(--bg); padding:4px 8px; border-radius:6px; word-break:break-all}
+.keyform{margin-top:4px}

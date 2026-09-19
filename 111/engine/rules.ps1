@@ -13,6 +13,11 @@ $script:Glossary        = @()
 $script:PolicyIndex     = @()
 $script:IntentTaxonomy  = @()
 
+# 商户自定义的禁用表述：存 data/custom_rules.json，启动时并进合规规则表。
+# 与 CSV 里的种子规则走**完全相同**的检测逻辑（match_mode = violation）。
+$script:CustomRulesPath = $null
+$script:CustomRules     = @()
+
 # 欧盟成员国（用于把 EU 级规则匹配到具体国家）
 $script:EuCountries = @('DE','FR','ES','IT','NL','BE','PL','AT','PT','IE','SE','DK','FI','GR','CZ','RO','HU','LU','SK','SI','HR','EE','LV','LT','MT','CY','BG')
 
@@ -28,11 +33,215 @@ function Initialize-KnowledgeBase {
   $script:Glossary        = @(Import-Csv -Path (Join-Path $DataDir 'glossary_zh_en_es_de_fr.csv') -Encoding UTF8)
   $script:PolicyIndex     = @(Import-Csv -Path (Join-Path $DataDir 'policy_index.csv')            -Encoding UTF8)
   $script:IntentTaxonomy  = @(Import-Csv -Path (Join-Path $DataDir 'intent_taxonomy.csv')         -Encoding UTF8)
+
+  # 商户自定义禁用表述：并进规则表，走同一套检测逻辑
+  $script:CustomRulesPath = Join-Path $DataDir 'custom_rules.jsonl'
+  $script:CustomRules = @(Read-CustomRules)
+  foreach ($cr in $script:CustomRules) { $script:ComplianceRules += $cr }
+
   return [pscustomobject]@{
     compliance_rules = $script:ComplianceRules.Count
+    custom_rules     = $script:CustomRules.Count
     glossary         = $script:Glossary.Count
     policy_index     = $script:PolicyIndex.Count
     intent_taxonomy  = $script:IntentTaxonomy.Count
+  }
+}
+
+# ---------------------------------------------------------------------
+# 自定义禁用表述
+# ---------------------------------------------------------------------
+function Read-CustomRules {
+  if ([string]::IsNullOrWhiteSpace($script:CustomRulesPath)) { return @() }
+  if (-not (Test-Path $script:CustomRulesPath)) { return @() }
+  try {
+    $raw = Get-Content $script:CustomRulesPath -Raw -Encoding UTF8
+    if ([string]::IsNullOrWhiteSpace($raw)) { return @() }
+    $arr = @(Read-CustomRulesRaw)
+  } catch {
+    Write-Warning ('自定义规则文件解析失败，已忽略：' + $_.Exception.Message)
+    return @()
+  }
+  $out = @()
+  foreach ($r in $arr) {
+    if ([string]::IsNullOrWhiteSpace($r.pattern)) { continue }
+    # 正则合法性在这里就验证 —— 坏正则会让整个合规层静默失效
+    try { [void][regex]::Match('', $r.pattern) } catch {
+      Write-Warning ('自定义规则 ' + $r.id + ' 的正则非法，已跳过：' + $r.pattern)
+      continue
+    }
+    $out += [pscustomobject]@{
+      rule_id      = [string]$r.id
+      category     = 'custom'
+      severity     = $(if ($r.severity) { [string]$r.severity } else { 'warn' })
+      title        = $(if ($r.title) { [string]$r.title } else { '自定义禁用表述' })
+      pattern      = [string]$r.pattern
+      match_mode   = 'violation'
+      description  = $(if ($r.reason) { [string]$r.reason } else { '命中商户自定义禁用表述' })
+      applies_country  = 'SCOPE_GLOBAL'
+      applies_platform = 'SCOPE_GLOBAL'
+      revise_hint  = $(if ($r.suggestion) { [string]$r.suggestion } else { '请改写措辞，避开该表述' })
+      effective_date = $(if ($r.created_at) { ([string]$r.created_at).Substring(0, [math]::Min(10, ([string]$r.created_at).Length)) } else { '' })
+      verified_by  = '商户自定义'
+      verified_date = ''
+      status       = 'custom'
+    }
+  }
+  return $out
+}
+
+function Save-CustomRules {
+  param([array]$Rules)
+  if ([string]::IsNullOrWhiteSpace($script:CustomRulesPath)) { throw '自定义规则路径未初始化' }
+  # JSONL：一行一条，逐条独立序列化。见 Read-CustomRulesRaw 的说明。
+  $lines = New-Object System.Collections.ArrayList
+  foreach ($r in @($Rules)) {
+    if ($null -eq $r) { continue }
+    $o = [pscustomobject]@{
+      id         = [string]$r.id
+      title      = [string]$r.title
+      pattern    = [string]$r.pattern
+      severity   = [string]$r.severity
+      reason     = [string]$r.reason
+      suggestion = [string]$r.suggestion
+      created_at = [string]$r.created_at
+    }
+    [void]$lines.Add(($o | ConvertTo-Json -Compress -Depth 3))
+  }
+  $text = if ($lines.Count -eq 0) { '' } else { ($lines.ToArray() -join "`n") + "`n" }
+  [System.IO.File]::WriteAllText($script:CustomRulesPath, $text, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Add-CustomRule {
+  param(
+    [Parameter(Mandatory)][string]$Pattern,
+    [string]$Title = '自定义禁用表述',
+    [string]$Severity = 'warn',
+    [string]$Reason = '',
+    [string]$Suggestion = ''
+  )
+  if ([string]::IsNullOrWhiteSpace($Pattern)) { throw '禁用表述不能为空' }
+  # 先验证正则：宁可当场报错，也不要让坏正则悄悄毁掉整个合规层
+  try { [void][regex]::Match('测试文本', $Pattern) }
+  catch { throw ('正则表达式不合法：' + $_.Exception.Message) }
+  if (@('warn','block') -notcontains $Severity) { $Severity = 'warn' }
+
+  $list = @(Read-CustomRulesRaw)
+  # 生成不冲突的 id
+  $n = 1
+  $existing = @($list | ForEach-Object { $_.id })
+  while ($existing -contains ('C{0:d3}' -f $n)) { $n++ }
+  $item = [ordered]@{
+    id         = 'C{0:d3}' -f $n
+    title      = $Title
+    pattern    = $Pattern
+    severity   = $Severity
+    reason     = $Reason
+    suggestion = $Suggestion
+    created_at = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+  }
+  $list += [pscustomobject]$item
+  Save-CustomRules -Rules $list
+  return $item
+}
+
+function Remove-CustomRule {
+  param([Parameter(Mandatory)][string]$Id)
+  $list = @(Read-CustomRulesRaw)
+  $keep = @($list | Where-Object { $_.id -ne $Id })
+  if ($keep.Count -eq $list.Count) { return $false }
+  Save-CustomRules -Rules $keep
+  return $true
+}
+
+# 读原始记录。
+#
+# ⚠️ 存储格式是 **JSONL**（一行一条），不是 JSON 数组。
+#    原因：PowerShell 5.1 的 ConvertTo-Json 处理数组有两个坑 ——
+#      ① -InputObject <数组> 会把它包成 { "value": [...], "Count": n }
+#      ② 管道输出多个对象时行为又不一样
+#    结果就是读回来属性变成 System.Object[]、多条规则被并成一个对象，
+#    症状是"规则计入总数却永远不生效"，极难排查。
+#    JSONL 每行独立序列化/反序列化，彻底绕开这些问题
+#    （本项目 logs/qa_logs.jsonl 用的也是同一思路）。
+function Read-CustomRulesRaw {
+  if ([string]::IsNullOrWhiteSpace($script:CustomRulesPath)) { return @() }
+  if (-not (Test-Path $script:CustomRulesPath)) { return @() }
+  $out = @()
+  try {
+    foreach ($line in @(Get-Content $script:CustomRulesPath -Encoding UTF8)) {
+      if ([string]::IsNullOrWhiteSpace($line)) { continue }
+      try { $o = $line | ConvertFrom-Json } catch { continue }
+      if ($null -ne $o) { $out += $o }
+    }
+  } catch { return @() }
+  return $out
+}
+
+# 供界面显示（合并"存储字段 + 当前是否生效"）
+function Get-CustomRulesForUi {
+  $raw = @(Read-CustomRulesRaw)
+  $out = @()
+  foreach ($r in $raw) {
+    $valid = $true
+    try { [void][regex]::Match('', [string]$r.pattern) } catch { $valid = $false }
+    $out += [pscustomobject]@{
+      id = $r.id; title = $r.title; pattern = $r.pattern
+      severity = $r.severity; reason = $r.reason; suggestion = $r.suggestion
+      created_at = $r.created_at; valid = $valid
+    }
+  }
+  return $out
+}
+
+# 改完自定义规则后热重载（不必重启服务）
+function Reload-ComplianceRules {
+  if ([string]::IsNullOrWhiteSpace($script:KnowledgeDataDir)) { return 0 }
+  $base = @(Import-Csv -Path (Join-Path $script:KnowledgeDataDir 'compliance_rules.csv') -Encoding UTF8)
+  $script:CustomRules = @(Read-CustomRules)
+  foreach ($cr in $script:CustomRules) { $base += $cr }
+  $script:ComplianceRules = $base
+  return $script:CustomRules.Count
+}
+
+# ---------------------------------------------------------------------
+# 新规则的"误杀"自检
+#
+# 用户加自定义禁用表述时最常见的错误是正则写得太宽（例如写"由我们承担"，
+# 而合法话术里本来就有"运费由我们承担"）。加规则时立刻拿合规正向样本
+# 试一遍，命中就当场警告 —— 否则用户会看到好好的话术突然全被拦掉。
+# ---------------------------------------------------------------------
+function Test-CustomRuleFalsePositive {
+  param([Parameter(Mandatory)][string]$Pattern)
+  if ([string]::IsNullOrWhiteSpace($script:KnowledgeDataDir)) { return @() }
+  $csv = Join-Path $script:KnowledgeDataDir 'compliance_unit_test.csv'
+  if (-not (Test-Path $csv)) { return @() }
+  $rows = @()
+  try { $rows = @(Import-Csv -Path $csv -Encoding UTF8) } catch { return @() }
+  $hits = @()
+  foreach ($r in $rows) {
+    if ([string]$r.expected_decision -ne 'pass') { continue }
+    $text = [string]$r.candidate_text_zh
+    if ([string]::IsNullOrWhiteSpace($text)) { continue }
+    try {
+      if ([regex]::IsMatch($text, $Pattern)) {
+        $hits += [pscustomobject]@{ test_id = $r.test_id; text = $text }
+      }
+    } catch { }
+  }
+  return $hits
+}
+
+# 实时统计。
+# ⚠️ 不要在 /api/health 里直接返回启动时算好的快照 ——
+#    界面加了自定义规则之后那个数字就不准了（踩过：明明加成功却显示 0）。
+function Get-KbCounts {
+  return [pscustomobject]@{
+    compliance_rules = @($script:ComplianceRules).Count
+    custom_rules     = @($script:CustomRules).Count
+    glossary         = @($script:Glossary).Count
+    policy_index     = @($script:PolicyIndex).Count
+    intent_taxonomy  = @($script:IntentTaxonomy).Count
   }
 }
 

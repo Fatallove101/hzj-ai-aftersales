@@ -339,6 +339,94 @@ function renderSettings() {
       '🔒 Key 用 Windows DPAPI 加密后只存本机，接口永不回显。获取方式：百度智能云 → 千帆 ModelBuilder → 模型服务 → API Key。'));
   }
 
+  // 自定义禁用表述
+  const rb = $('#setRules');
+  if (rb) {
+    rb.innerHTML = '<div class="hint">加载中…</div>';
+    fetch('/api/custom-rules').then(x => x.json()).then(function (d) {
+      rb.innerHTML = '';
+      const list = (d && d.rules) || [];
+
+      // 新增表单
+      const ti = el('input', 'sel'); ti.placeholder = '规则名（如：禁止概不退换）';
+      const pi = el('input', 'sel'); pi.placeholder = '关键词或正则（如：概不退换|不退不换）';
+      const si = el('select', 'sel');
+      [['warn', '警告（标记为需修订）'], ['block', '拦截（直接判为不可发送）']].forEach(function (o) {
+        const op = el('option'); op.value = o[0]; op.textContent = o[1]; si.appendChild(op);
+      });
+      si.style.maxWidth = '200px';
+      const ri = el('input', 'sel'); ri.placeholder = '原因（选填，会显示给坐席）';
+      const gi = el('input', 'sel'); gi.placeholder = '改写建议（选填）';
+
+      const row1 = el('div', 'row'); row1.style.marginTop = '4px';
+      row1.appendChild(ti); row1.appendChild(pi);
+      const row2 = el('div', 'row'); row2.style.marginTop = '8px';
+      row2.appendChild(si); row2.appendChild(ri);
+      const row3 = el('div', 'row'); row3.style.marginTop = '8px';
+      row3.appendChild(gi);
+
+      const btn = el('button', 'btn primary sm', '＋ 添加规则');
+      const msg = el('div', 'hint', '');
+      btn.onclick = async function () {
+        if (!pi.value.trim()) { msg.innerHTML = '<span style="color:var(--warn)">请填写关键词或正则</span>'; return; }
+        btn.disabled = true; btn.textContent = '添加中…';
+        try {
+          const r = await fetch('/api/custom-rules', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: ti.value.trim() || '自定义禁用表述', pattern: pi.value.trim(),
+                                   severity: si.value, reason: ri.value.trim(), suggestion: gi.value.trim() })
+          }).then(x => x.json());
+          if (!r.ok) { msg.innerHTML = '<span style="color:var(--bad)">' + esc(r.error || '添加失败') + '</span>'; }
+          else if (r.warnings && r.warnings.length) {
+            // 规则太宽会误杀合规话术 —— 当场提示，别让用户回头发现话术全被拦
+            msg.innerHTML = '<span style="color:var(--warn)">⚠ ' +
+              esc(r.warnings.join('<br>')).replace(/&lt;br&gt;/g, '<br>') + '</span>';
+            toast('已添加，但可能过于宽泛', false);
+            return;
+          }
+          else { toast('已添加，立即生效'); renderSettings(); return; }
+        } catch (e) { msg.innerHTML = '<span style="color:var(--bad)">' + esc(e.message) + '</span>'; }
+        btn.disabled = false; btn.textContent = '＋ 添加规则';
+      };
+      const row4 = el('div', 'row'); row4.style.marginTop = '10px';
+      row4.appendChild(btn);
+      rb.appendChild(row1); rb.appendChild(row2); rb.appendChild(row3); rb.appendChild(row4); rb.appendChild(msg);
+
+      // 现有规则
+      if (!list.length) {
+        rb.appendChild(el('div', 'hint', '还没有自定义规则。上方添加后，候选话术会被即时校验。'));
+      } else {
+        rb.appendChild(el('div', 'an-title', '已启用 ' + list.length + ' 条'));
+        list.forEach(function (r) {
+          const c = el('div', 'ruleitem');
+          const hdRow = el('div', 'row');
+          const tag = el('span', 'tag ' + (r.severity === 'block' ? 'rj' : 'rv'),
+                         r.severity === 'block' ? '拦截' : '警告');
+          hdRow.appendChild(tag);
+          hdRow.appendChild(el('span', 'ruleid', esc(r.id)));
+          hdRow.appendChild(el('span', 'ruletitle', esc(r.title || '')));
+          if (!r.valid) hdRow.appendChild(el('span', 'tag rj', '正则非法·未生效'));
+          const del = el('button', 'btn ghost sm', '删除');
+          del.style.marginLeft = 'auto';
+          del.onclick = async function () {
+            del.disabled = true;
+            const rr = await fetch('/api/custom-rules', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ delete: r.id })
+            }).then(x => x.json());
+            if (rr.ok) { toast('已删除'); renderSettings(); } else { toast(rr.error || '删除失败', false); del.disabled = false; }
+          };
+          hdRow.appendChild(del);
+          c.appendChild(hdRow);
+          c.appendChild(el('div', 'rulepat', '匹配：' + esc(r.pattern)));
+          if (r.reason) c.appendChild(el('div', 'tiny', '原因：' + esc(r.reason)));
+          if (r.suggestion) c.appendChild(el('div', 'tiny', '建议：' + esc(r.suggestion)));
+          rb.appendChild(c);
+        });
+      }
+    }).catch(function () { rb.innerHTML = '<div class="hint">读不到规则列表（本地服务未启动？）</div>'; });
+  }
+
   const rd = $('#setReaders');
   if (rd) {
     rd.innerHTML = '';

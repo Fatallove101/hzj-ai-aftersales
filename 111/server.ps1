@@ -274,7 +274,7 @@ function Handle-Request {
     Send-Json -Stream $Stream -Object @{
       ok = $true
       mode = (Get-ModelStatus).mode
-      data = $counts
+      data = (Get-KbCounts)   # 实时统计，不用启动快照
       ocr_languages = $ocrLangs
       uia_available = $uiaOk
       clipboard_available = $clipOk
@@ -362,6 +362,61 @@ function Handle-Request {
   }
 
   # 模型状态（只返回 has_key，绝不返回密钥本身）
+  # 规则库一览（诊断用：直接看函数内部看到的规则表）
+  if ($path -eq '/api/rules' -and $Request.method -eq 'GET') {
+    $deRules = @(Get-ApplicableRules -Country 'DE')
+    Send-Json -Stream $Stream -Object @{
+      ok              = $true
+      scope_total     = @($script:ComplianceRules).Count
+      applicable_de   = $deRules.Count
+      custom_in_de    = @($deRules | Where-Object { $_.rule_id -like 'C*' }).Count
+      custom_patterns = @($deRules | Where-Object { $_.rule_id -like 'C*' } | ForEach-Object { $_.rule_id + '=' + $_.pattern })
+      counts          = (Get-KbCounts)
+    }
+    return
+  }
+
+  # 自定义禁用表述（商户在界面上自己加规则，走与种子规则相同的检测逻辑）
+  if ($path -eq '/api/custom-rules' -and $Request.method -eq 'GET') {
+    Send-Json -Stream $Stream -Object @{ ok = $true; rules = @(Get-CustomRulesForUi) }
+    return
+  }
+
+  if ($path -eq '/api/custom-rules' -and $Request.method -eq 'POST') {
+    $b = Get-BodyJson -Request $Request
+    if ($null -eq $b) { Send-Json -Stream $Stream -Object @{ ok=$false; error='请求体不是合法 JSON' } -Status 400; return }
+    $names = @($b.PSObject.Properties.Name)
+
+    if ($names -contains 'delete') {
+      $done = Remove-CustomRule -Id ([string]$b.delete)
+      if (-not $done) { Send-Json -Stream $Stream -Object @{ ok=$false; error='找不到该规则' } -Status 404; return }
+      [void](Reload-ComplianceRules)
+      Send-Json -Stream $Stream -Object @{ ok = $true; deleted = [string]$b.delete; rules = @(Get-CustomRulesForUi) }
+      return
+    }
+
+    try {
+      $item = Add-CustomRule -Pattern ([string]$b.pattern) -Title ([string]$b.title) `
+                -Severity ([string]$b.severity) -Reason ([string]$b.reason) -Suggestion ([string]$b.suggestion)
+      $cnt = Reload-ComplianceRules
+      # 立刻用合规正向样本试一遍，命中就警告"可能误杀"
+      $fp = @(Test-CustomRuleFalsePositive -Pattern ([string]$b.pattern))
+      $warn = @()
+      if ($fp.Count -gt 0) {
+        $warn += ('该规则会命中 ' + $fp.Count + ' 条已知的合规话术，可能过于宽泛：')
+        foreach ($h in $fp) { $warn += ('  · ' + $h.test_id + ' ' + $h.text) }
+      }
+      Send-Json -Stream $Stream -Object @{
+        ok = $true; added = $item; active = $cnt
+        warnings = @($warn); false_positive_samples = @($fp)
+        rules = @(Get-CustomRulesForUi)
+      }
+    } catch {
+      Send-Json -Stream $Stream -Object @{ ok=$false; error=$_.Exception.Message } -Status 400
+    }
+    return
+  }
+
   # 保存模型配置与 API Key（界面里输入，替代"登录"）
   # 设计要点：
   #   · API Key 只进不出 —— 存进 DPAPI 加密文件，响应里只回 has_key + 指纹
