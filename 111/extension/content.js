@@ -1044,6 +1044,7 @@
     // 这就是传统"登录界面"的替代：没有账号密码，只有自己的 API Key。
     if (state.view === 'setup') { renderSetup(); return; }
     if (state.view === 'edit') { renderEdit(); return; }
+    if (state.view === 'picker') { renderPicker(); return; }
 
     // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
@@ -1303,14 +1304,6 @@
     return c.text_en || c.text_zh;
   }
 
-  function renderFooter() {
-    const ft = shadow.querySelector('.ft');
-    ft.innerHTML = '';
-    ft.appendChild(h('span', { class: 'dot ' + (state.serverOk ? 'on' : 'off') , id: 'st' }));
-    ft.appendChild(h('span', { class: 'tiny', id: 'stt', text: state.serverOk ? '已连接' : '未连接' }));
-    ft.appendChild(h('span', { style: 'flex:1' }));
-    ft.appendChild(h('button', { class: 'btn sm', text: '⚙', title: '重新拾取选择器', onclick: openPickerMenu }));
-  }
 
   /* ---------------- 动作 ---------------- */
   async function copy(text) {
@@ -1651,8 +1644,16 @@
   }
 
   /* ---------------- 选择器拾取 ---------------- */
-  function openPickerMenu() {
-    state.view = 'picker'; state.viewStack = ['main']; syncBackBtn();
+  /* 拾取菜单。
+     ⚠️ 这个函数曾经叫 openPickerMenu，自己设置 state.view；
+     导航重构后入口改成了 pushView('picker')，但 renderInner 里**没补 picker 分支**，
+     于是它变成"定义了但没人调用"的死代码 —— 点 ⚙ 只会落回主视图，看起来像返回主页。
+     函数体里还残留 candsBd（三框重构后的局部变量，这里根本不存在），
+     所以就算恢复调用也会立刻 ReferenceError。两个问题一起修：
+       1. 改名 renderPicker，只负责画内容，视图切换交给 pushView
+       2. candsBd -> body
+       3. 去掉重复的「← 返回」按钮（页脚已有固定位置的返回键） */
+  function renderPicker() {
     const items = [
       { key: 'messageList', label: '① 拾取「消息区」容器', mode: 'list',
         help: '点一下整个对话列表所在的区域（一大块包含很多条消息的容器）' },
@@ -1664,18 +1665,16 @@
       h('div', { class: 'sec', text: '重新拾取页面元素' }),
       h('div', { class: 'tiny', html: '平台改版后识别不准时，用这里重新教一遍。<br>拾取结果只保存在本机浏览器里。' })
     ]));
-    items.forEach(it => {
-      const card = h('div', { class: 'card' }, [
+    items.forEach(function (it) {
+      body.appendChild(h('div', { class: 'card' }, [
         h('div', { style: 'font-weight:600;margin-bottom:4px', text: it.label }),
         h('div', { class: 'tiny', text: it.help }),
         h('div', { class: 'row', style: 'margin-top:8px' }, [
           h('button', { class: 'btn pri sm', text: '开始拾取', onclick: () => beginPick(it) })
         ])
-      ]);
-      candsBd.appendChild(card);
+      ]));
     });
-    body.appendChild(h('div', { class: 'row' }, [
-      h('button', { class: 'btn sm', text: '← 返回', onclick: render }),
+    body.appendChild(h('div', { class: 'row', style: 'margin-top:4px' }, [
       h('button', { class: 'btn sm dan', text: '清除本机已学选择器', onclick: clearOverrides })
     ]));
   }

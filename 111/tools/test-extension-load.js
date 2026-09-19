@@ -229,6 +229,43 @@ if (AIH && AIH.Adapters && AIH.Adapters.detect) {
   failed++;
 }
 
+// ---------- 视图路由完整性检查 ----------
+// 为什么需要：pushView('picker') 把 state.view 设成 'picker'，
+// 但 renderInner 里没有 state.view === 'picker' 分支 → 落回主视图，
+// 用户看到的就是"点了 ⚙ 却返回主页"。这类漏改不报错、不崩，只是功能凭空消失。
+// 检查：每个 pushView('X') 的值，都必须在 renderInner 里有对应分支。
+console.log('');
+console.log('=== 视图路由完整性检查 ===');
+try {
+  const jsRaw = fs.readFileSync(path.join(EXT, 'content.js'), 'utf8');
+  // ⚠️ 必须先剥注释再扫。
+  // 第一版没剥，结果我为了测试把分支注释掉之后，检查仍然报"路由完整" ——
+  // **注释里的 state.view === 'picker' 被当成了真分支**，检查形同虚设。
+  // （和 CSS class 检查踩的是同一个坑：扫源码的检查都要先剥注释。）
+  const jsSrc = jsRaw
+    .replace(/\/\*[\s\S]*?\*\//g, '')       // 块注释
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');  // 行注释（避开 http:// 这种）
+  const pushed = [];
+  (jsSrc.match(/pushView\('([^']+)'\)/g) || []).forEach((m) => {
+    const v = m.replace(/^pushView\('/, '').replace(/'\)$/, '');
+    if (pushed.indexOf(v) < 0) pushed.push(v);
+  });
+  const branched = [];
+  (jsSrc.match(/state\.view === '([^']+)'/g) || []).forEach((m) => {
+    const v = m.replace(/^state\.view === '/, '').replace(/'$/, '');
+    if (branched.indexOf(v) < 0) branched.push(v);
+  });
+  const orphan = pushed.filter((v) => branched.indexOf(v) < 0);
+  if (orphan.length) {
+    console.log('  ✕ 这些视图被 pushView 打开，但 renderInner 里没有对应分支：' + orphan.join(', '));
+    failed++;
+  } else {
+    console.log('  ✓ ' + pushed.length + ' 个视图路由（' + pushed.join('/') + '）都有对应渲染分支');
+  }
+} catch (e) {
+  console.log('  ✕ 检查失败：' + ((e && e.message) || e));
+  failed++;
+}
 // ---------- CSS class 完整性检查 ----------
 // 为什么需要：扩展里用了 .rawtext（手动输入框、修改后采纳的文本框），
 // 但 CSS 里从没定义过 —— 结果是浏览器默认样式：白底深边框，在浅色面板里很突兀。
@@ -321,6 +358,20 @@ try {
     T.render();
     T.state.view = 'main';      // 必须复位 —— openEditor 会切到 edit 视图，
     T.state.viewStack = [];     // 不复位的话下面的 render 会在 edit 分支就返回
+
+    // 再跑一遍「拾取选择器」视图。
+    // 这个页面曾经因为"pushView('picker') 但 renderInner 没有 picker 分支"而整个失效 ——
+    // 点 ⚙ 会落回主视图，看起来像"返回主页"。
+    T.state.view = 'picker';
+    T.render();
+    const pickTexts = collectText(context.document.documentElement).join('\n');
+    if (!pickTexts.includes('重新拾取页面元素')) {
+      console.log('  ✕ 「拾取选择器」视图没有渲染出来');
+      failed++;
+    } else {
+      console.log('  ✓ 「拾取选择器」视图渲染正常');
+    }
+    T.state.view = 'main';
 
     // 再跑一遍「生成中」状态（新增的进度分支）
     T.state.busy = true;
