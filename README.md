@@ -196,6 +196,8 @@
 
 ---
 
+> 📖 **第一次用请先读 [`hzj-ai-aftersales/使用说明书.txt`](hzj-ai-aftersales/使用说明书.txt)** ——
+> 里面写了怎么导入扩展、怎么填自己的 API Key、怎么接知识库、出问题怎么办。
 ## 30 秒跑起来
 
 **双击 `hzj-ai-aftersales\启动网页（推荐用扩展，详见README）.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>

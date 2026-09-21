@@ -50,6 +50,16 @@ Get-ChildItem -Path $root -Recurse -Filter *.json -File -ErrorAction SilentlyCon
     }
   }
 
+# .txt 是给用户看的（记事本打开），必须带 BOM —— 否则老版本记事本按 ANSI 解码，
+# 中文全是乱码。这类"编码踩坑"在本项目已经出现 5 次（.ps1/.json/.bat/.txt），
+# 所以每种给不同工具读的文件都要有自己的规则。
+$txtBad = @()
+Get-ChildItem -Path $root -Recurse -Filter *.txt -File -ErrorAction SilentlyContinue | ForEach-Object {
+  $tb = [System.IO.File]::ReadAllBytes($_.FullName)
+  $hasB = ($tb.Length -ge 3 -and $tb[0] -eq 0xEF -and $tb[1] -eq 0xBB -and $tb[2] -eq 0xBF)
+  if (-not $hasB) { $txtBad += $_.FullName.Replace($root + '\', '') }
+}
+
 # .ps1 必须有 BOM（PS 5.1 按 ANSI 解码会乱码）
 Get-ChildItem -Path $root -Recurse -Filter *.ps1 -File | ForEach-Object {
   $checked++
@@ -70,6 +80,8 @@ if ($jsonBad.Count -eq 0) { Write-Host '   .json 无 BOM: 是' -ForegroundColor 
 else { Write-Host ('   .json 无 BOM: 否（' + $jsonBad.Count + ' 个）') -ForegroundColor Red }
 Write-Host ('  .bat 纯 ASCII: ' ) -NoNewline
 if ($batBad.Count -eq 0) { Write-Host '是' -ForegroundColor Green } else { Write-Host ('否（' + $batBad.Count + ' 个）') -ForegroundColor Red }
+Write-Host ('  .txt 带 BOM: ' ) -NoNewline
+if ($txtBad.Count -eq 0) { Write-Host '是' -ForegroundColor Green } else { Write-Host ('否（' + $txtBad.Count + ' 个）') -ForegroundColor Red }
   Write-Host '  ✓ 全部带 BOM' -ForegroundColor Green
   Write-Host ''
   if ($jsonBad.Count -gt 0) {
@@ -88,6 +100,15 @@ if ($batBad.Count -eq 0) { Write-Host '是' -ForegroundColor Green } else { Writ
     foreach ($x in $batBad) { Write-Host ('      ' + $x) -ForegroundColor Red }
     Write-Host ''
     Write-Host '  修复：.bat 只写英文；中文提示移到 .ps1（UTF-8 带 BOM）里，由 .bat 调用。' -ForegroundColor Yellow
+    Write-Host ''
+    exit 1
+  }
+  if ($txtBad.Count -gt 0) {
+    Write-Host ''
+    Write-Host '  ✕ 这些 .txt 没带 BOM，记事本打开中文会乱码：' -ForegroundColor Red
+    foreach ($y in $txtBad) { Write-Host ('      ' + $y) -ForegroundColor Red }
+    Write-Host ''
+    Write-Host '  修复：以「UTF-8 带 BOM」重新保存这些 txt。' -ForegroundColor Yellow
     Write-Host ''
     exit 1
   }
