@@ -45,7 +45,7 @@ function panel(bodyHtml, opts) {
        border-radius:14px;overflow:hidden;border:1px solid #e3e8f3;box-shadow:0 12px 40px rgba(31,35,41,.18)">
     <div class="hd">
       <div class="logo">AI</div>
-      <div class="ttl">跨境售后话术助手</div>
+      <div class="ttl">跨境销售话术助手</div>
       ${sizes}
       <button class="btn sm" title="切换悬浮/停靠">⇱</button>
       <button class="btn sm">—</button>

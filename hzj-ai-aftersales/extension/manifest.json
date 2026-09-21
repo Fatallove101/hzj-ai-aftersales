@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "跨境售后 AI 话术助手",
-  "version": "0.41.0",
+  "name": "跨境销售 AI 话术助手",
+  "version": "0.42.0",
   "description": "在客服后台侧边栏读取对话，生成候选话术并一键插入输入框。配合本地服务 (127.0.0.1:8799) 使用。",
 
   "permissions": ["storage", "activeTab", "scripting"],
@@ -27,7 +27,7 @@
   },
 
   "action": {
-    "default_title": "跨境售后 AI 话术助手（点击开/关侧边栏）",
+    "default_title": "跨境销售 AI 话术助手（点击开/关侧边栏）",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
