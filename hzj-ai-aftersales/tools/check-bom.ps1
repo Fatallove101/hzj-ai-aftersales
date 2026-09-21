@@ -26,6 +26,21 @@ $checked = 0
 # 踩过的坑：改 extension\manifest.json 时用 $bom 写，结果 JSON.parse 报
 #   SyntaxError: Unexpected token ''
 # 扩展直接加载失败（而 .ps1 的检查抓不到这个，因为 json 不在检查范围里）。
+# .bat **必须纯 ASCII**。
+# 踩过的坑：启动演示页面.bat 里写了 UTF-8 中文，cmd.exe 按 GBK 解码，
+# 多字节序列把**后面命令的首字符一起吞掉**，实测报错：
+#     'art' is not recognized...       ← "start" 被吃了 s
+#     'nPolicy' is not recognized...   ← "-NoProfile" 被吃了 "-NoP"
+#     '服务起来要点时间，延迟' is not recognized...  ← rem 注释变成了命令
+# 脚本直接跑不起来。中文提示请放到 .ps1（带 BOM）里，由 .bat 调用。
+$batBad = @()
+Get-ChildItem -Path $root -Recurse -Filter *.bat -File -ErrorAction SilentlyContinue | ForEach-Object {
+  $bb = [System.IO.File]::ReadAllBytes($_.FullName)
+  $na = 0
+  for ($q = 0; $q -lt $bb.Length; $q++) { if ($bb[$q] -gt 127) { $na++ } }
+  if ($na -gt 0) { $batBad += ($_.FullName.Replace($root + '\', '') + '  （' + $na + ' 个非 ASCII 字节）') }
+}
+
 $jsonBad = @()
 Get-ChildItem -Path $root -Recurse -Filter *.json -File -ErrorAction SilentlyContinue |
   Where-Object { $_.FullName -notmatch '\\logs\\' } | ForEach-Object {
@@ -53,6 +68,8 @@ if ($bad.Count -eq 0) {
 Write-Host ('  .ps1 带 BOM: {0} 个' -f $checked) -NoNewline
 if ($jsonBad.Count -eq 0) { Write-Host '   .json 无 BOM: 是' -ForegroundColor Green }
 else { Write-Host ('   .json 无 BOM: 否（' + $jsonBad.Count + ' 个）') -ForegroundColor Red }
+Write-Host ('  .bat 纯 ASCII: ' ) -NoNewline
+if ($batBad.Count -eq 0) { Write-Host '是' -ForegroundColor Green } else { Write-Host ('否（' + $batBad.Count + ' 个）') -ForegroundColor Red }
   Write-Host '  ✓ 全部带 BOM' -ForegroundColor Green
   Write-Host ''
   if ($jsonBad.Count -gt 0) {
@@ -61,6 +78,16 @@ else { Write-Host ('   .json 无 BOM: 否（' + $jsonBad.Count + ' 个）') -For
     foreach ($j in $jsonBad) { Write-Host ('      ' + $j) -ForegroundColor Red }
     Write-Host ''
     Write-Host '  修复：重新以「UTF-8 无 BOM」保存这些 json。' -ForegroundColor Yellow
+    Write-Host ''
+    exit 1
+  }
+  if ($batBad.Count -gt 0) {
+    Write-Host ''
+    Write-Host '  ✕ 这些 .bat 含非 ASCII 字符。cmd.exe 按 GBK 解码时会把后面命令的首字符吞掉：' -ForegroundColor Red
+    Write-Host '     （实测：start 变 art、-NoProfile 变 nPolicy，脚本直接跑不起来）' -ForegroundColor DarkGray
+    foreach ($x in $batBad) { Write-Host ('      ' + $x) -ForegroundColor Red }
+    Write-Host ''
+    Write-Host '  修复：.bat 只写英文；中文提示移到 .ps1（UTF-8 带 BOM）里，由 .bat 调用。' -ForegroundColor Yellow
     Write-Host ''
     exit 1
   }

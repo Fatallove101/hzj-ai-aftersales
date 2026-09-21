@@ -1,35 +1,25 @@
 @echo off
 chcp 65001 >nul
-title 模拟客服页 · 扩展测试台
+title Demo Page - Extension Test Bench
 cd /d "%~dp0"
 
-echo.
-echo   ================================================================
-echo     模拟客服页 · 扩展测试台
-echo   ================================================================
-echo.
-echo     这个页面是「假装的客服后台」——不是产品本体。
-echo     它用来测扩展读得准不准，因为真实客服后台需要账号才能进。
-echo.
-echo     启动后会自动打开： http://127.0.0.1:8799/mock.html
-echo.
-echo     用法：
-echo       1. 页面打开后，点浏览器右上角的扩展图标
-echo          （这个页面不在自动注入列表里，要点一下图标手动注入）
-echo       2. 侧边栏出来以后，读取源选「页面」→ 点「换一批」
-echo       3. 读不到就点页脚 ⌖ 拾取一次「消息区」容器
-echo       4. 满意的话点「⤵ 插入输入框」，文字会进页面底部的输入框
-echo.
-echo     服务窗口不要关，关了页面就用不了。
-echo   ================================================================
-echo.
+rem ===================================================================
+rem  IMPORTANT: this .bat is PURE ASCII on purpose.
+rem
+rem  cmd.exe reads .bat files using the system OEM codepage (GBK on
+rem  Chinese Windows). If this file contained UTF-8 Chinese, cmd would
+rem  decode it as GBK, and the multi-byte sequences would SWALLOW the
+rem  first characters of the following commands. Measured failures:
+rem      'art' is not recognized...      <- "start" lost its "s"
+rem      'nPolicy' is not recognized...  <- "-NoProfile" lost "-NoP"
+rem  The script would not run at all.
+rem
+rem  So: keep this file ASCII-only. All Chinese messages live in
+rem  tools\start-demo.ps1, which is UTF-8 *with BOM* and reads fine.
+rem ===================================================================
 
-rem 服务起来要点时间，延迟 4 秒再开页面（和 server.ps1 里的自动打开不重复：
-rem 这里用 -NoBrowser，由本脚本自己负责开）
-start "" cmd /c "timeout /t 4 /nobreak >nul & start "" http://127.0.0.1:8799/mock.html"
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0server.ps1" -Port 8799 -NoBrowser
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\start-demo.ps1"
 
 echo.
-echo   服务已停止。按任意键关闭本窗口。
+echo   Service stopped. Press any key to close.
 pause >nul
