@@ -451,7 +451,7 @@
     });
     const hd = h('div', { class: 'hd' }, [
       h('div', { class: 'logo', text: 'AI' }),
-      h('div', { class: 'ttl', text: '跨境售后话术助手' }),
+      h('div', { class: 'ttl', text: '跨境销售话术助手' }),
       szWrap, btnMode,
       h('button', { class: 'btn sm', text: '—', title: '收起', onclick: () => setVisible(false) })
     ]);

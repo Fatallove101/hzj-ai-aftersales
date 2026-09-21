@@ -1,5 +1,5 @@
 ﻿# =====================================================================
-# hzj-ai-aftersales/server.ps1  ·  跨境售后 AI 话术助手 · 本地演示服务
+# hzj-ai-aftersales/server.ps1  ·  跨境销售 AI 话术助手 · 本地演示服务
 # 零依赖：只用 .NET 标准库（TcpListener），无需 Python / Node / 管理员权限
 # 启动：双击 启动网页（推荐用扩展，详见README）.bat   或   powershell -ExecutionPolicy Bypass -File server.ps1
 # =====================================================================
@@ -98,7 +98,7 @@ function Write-ReqLog {
 
 Write-Host ""
 Write-Host "==============================================================" -ForegroundColor Cyan
-Write-Host "  汉正街跨境售后 AI 话术助手 · 本地演示" -ForegroundColor Cyan
+Write-Host "  汉正街跨境销售 AI 话术助手 · 本地演示" -ForegroundColor Cyan
 Write-Host "==============================================================" -ForegroundColor Cyan
 
 $counts = Initialize-KnowledgeBase -DataDir $DataDir
