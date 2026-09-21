@@ -208,6 +208,30 @@
 
 ---
 
+## 不想每次都手动启动服务？装成开机自启
+
+浏览器扩展**没法启动本机进程**，所以本地服务必须有人拉起来。
+如果嫌每次开机都要双击 bat 麻烦，装一次自启即可：
+
+```powershell
+cd hzj-ai-aftersales
+powershell -ExecutionPolicy Bypass -File tools\autostart.ps1 -Install
+```
+
+装完之后：**登录 Windows 时服务自动在后台静默启动**（不弹窗口、不占任务栏），
+打开任何网页 + 扩展都能直接连上。
+
+```powershell
+# 看当前状态（有没有装、服务在不在跑）
+powershell -ExecutionPolicy Bypass -File tools\autostart.ps1
+
+# 不想要了就卸掉
+powershell -ExecutionPolicy Bypass -File tools\autostart.ps1 -Uninstall
+```
+
+> 自启的命令带 `-NoBrowser`，所以开机时**不会**弹浏览器窗口 —— 想看页面自己双击 bat。
+
+---
 ## 装浏览器扩展（3 分钟）
 
 1. 打开 `edge://extensions/`（Chrome 用 `chrome://extensions/`）
