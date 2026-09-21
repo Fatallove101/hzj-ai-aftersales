@@ -1,4 +1,4 @@
-/* =====================================================================
+﻿/* =====================================================================
    content.js  ·  侧边栏主体
    在客服后台右侧注入一个面板：读取对话 → 生成话术 → 一键插入输入框
    用 Shadow DOM 隔离样式，避免与宿主页面互相污染。
@@ -1070,6 +1070,7 @@
       const btnRetry = h('button', { class: 'btn sm', text: '↻ 重试连接' });
       btnRetry.onclick = async () => {
         btnRetry.textContent = '连接中…'; btnRetry.disabled = true;
+        setStatus(true, '连接中…');
         const hp = await msg('health');
         state.serverOk = !!(hp && hp.ok);
         state.serverMsg = state.serverOk ? '' : ((hp && hp.error) || '未知错误');
@@ -1957,6 +1958,10 @@
     if (cfg && cfg.ok && cfg.data) state.overrides = cfg.data;
     state.selectors = AIH.Adapters.resolveSelectors(state.adapter, state.overrides);
 
+    // 先显示"连接中…"。为什么：本地服务是**单线程**的，
+    // 如果另一个标签页正在生成话术（几十秒），这个健康检查会一直等。
+    // 不等结果就写"未连接"的话，用户会以为服务挂了 —— 其实只是忙。
+    setStatus(true, '连接中…');
     // 健康检查
     const hp = await msg('health');
     state.serverOk = !!(hp && hp.ok);
