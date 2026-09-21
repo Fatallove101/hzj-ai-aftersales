@@ -804,9 +804,12 @@ function Test-IsOurServer {
 if (-not (Test-PortFree -P $Port)) {
   if (Test-IsOurServer -P $Port) {
     Write-Host ""
-    Write-Host ("  端口 {0} 上已经有一个本服务在运行。" -f $Port) -ForegroundColor Yellow
-    Write-Host ("  直接打开 →  http://127.0.0.1:{0}{1}" -f $Port, $OpenPath) -ForegroundColor Green
-    Write-Host "  （如需重启：先关掉原来那个窗口，或换个端口启动）" -ForegroundColor DarkGray
+      Write-Host ("  端口 {0} 上已经有一个本服务在运行 —— 本次不再启动第二个。" -f $Port) -ForegroundColor Yellow
+      Write-Host ("  已为你打开 →  http://127.0.0.1:{0}{1}" -f $Port, $OpenPath) -ForegroundColor Green
+      Write-Host ""
+      Write-Host "  这个窗口可以直接关掉，后台那个服务不受影响。" -ForegroundColor White
+      Write-Host "  （如需重启：先关掉原来那个服务的窗口，或换个端口启动）" -ForegroundColor DarkGray
+      Write-Host ""
     if (-not $NoBrowser) { try { Start-Process ("http://127.0.0.1:{0}{1}" -f $Port, $OpenPath) | Out-Null } catch {} }
     Start-Sleep -Seconds 2
     exit 0

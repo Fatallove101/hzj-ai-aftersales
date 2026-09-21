@@ -44,5 +44,21 @@ Write-Host ''
 # 所以这里不需要再搞什么"延迟几秒打开"，交给它就行。
 & (Join-Path $Root 'server.ps1') -Port 8799 -OpenPath '/mock.html'
 
+# ⚠️ 这里**不能**无条件说"服务已停止"。
+# 踩过的坑：如果 8799 上已经有一个服务在跑，server.ps1 会打印
+# "已经有一个本服务在运行"然后 exit 0 —— 控制权回到这里，
+# 原来那句"服务已停止"就会误导用户以为服务挂了（其实后台跑得好好的）。
+# 所以退出后要**实际探一下**服务还在不在，再决定说什么。
 Write-Host ''
-Write-Host '  服务已停止。' -ForegroundColor Yellow
+$alive = $false
+try {
+  $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8799/api/health' -TimeoutSec 3
+  $alive = ($h.ok -eq $true)
+} catch { $alive = $false }
+
+if ($alive) {
+  Write-Host '  本地服务仍在运行（后台那个实例），本窗口可以直接关掉。' -ForegroundColor Green
+  Write-Host '  浏览器里已经打开演示页，可以开始用了。' -ForegroundColor Gray
+} else {
+  Write-Host '  服务已停止。' -ForegroundColor Yellow
+}
