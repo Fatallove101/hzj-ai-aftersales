@@ -48,6 +48,37 @@ chrome.commands.onCommand.addListener((cmd) => {
   if (cmd === 'open-workbench') openStandaloneWindow();
 });
 
+/* ---------------------------------------------------------------------
+   MV3 Service Worker 保活
+
+   为什么必须要有这个（这是"生成话术一直失败"的真正原因）：
+   Chrome 的扩展 Service Worker **空闲约 30 秒就会被回收**。
+   而接上千帆之后，一次分析要 **38~41 秒**（模型本身的延迟，实测 38.2s）。
+   于是：请求发出去 → 等 30 秒 → SW 被回收 → **正在进行的 fetch 一起被掐断**。
+
+   服务端那边的现象（实测日志）：
+     [分析] UNKNOWN | refund | True | 39725ms          ← 分析其实成功了
+     请求处理异常：Unable to write data to the transport connection:
+       An established connection was aborted by the software in your host machine.
+   也就是"算完了但写不回去"。前端只看到"生成失败"。
+
+   先把 TIMEOUT_MS 从 30 秒提到 150 秒并不解决问题 —— 卡人的不是 fetch 超时，
+   是 SW 被回收。所以要在这里**周期性调用一个扩展 API**，把空闲计时器按回去。
+ --------------------------------------------------------------------- */
+let keepAliveTimer = null;
+
+function startKeepAlive() {
+  if (keepAliveTimer) return;
+  keepAliveTimer = setInterval(function () {
+    try { chrome.runtime.getPlatformInfo(function () {}); } catch (e) {}
+  }, 20000);   // 20 秒一次，留足余量（回收阈值约 30 秒）
+}
+
+function stopKeepAlive() {
+  if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+}
+
+
 async function fetchWithTimeout(url, options = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -60,25 +91,32 @@ async function fetchWithTimeout(url, options = {}) {
 
 async function callServer(path, options) {
   const url = SERVER + path;
-  let res;
+  // 请求期间保活：模型一次要 38~41 秒，超过 SW 的 30 秒回收阈值。
+  // 不保活的话，SW 会在中途被回收、把 fetch 一起掐断（见上方说明）。
+  startKeepAlive();
   try {
-    res = await fetchWithTimeout(url, options);
-  } catch (e) {
-    // 请求根本发不出去（CORS / 私有网络 / 被安全软件拦 / 服务没起）
-    throw new Error('请求发不出去（' + url + '）：' + ((e && e.message) || e));
+    let res;
+    try {
+      res = await fetchWithTimeout(url, options);
+    } catch (e) {
+      // 请求根本发不出去（CORS / 私有网络 / 被安全软件拦 / 服务没起）
+      throw new Error('请求发不出去（' + url + '）：' + ((e && e.message) || e));
+    }
+    if (!res.ok) {
+      // ⚠️ 把响应体也带出来。只看状态码等于白看 ——
+      //    服务端的 400 响应体里会写明是哪个分支报的错。
+      let body = '';
+      try { body = (await res.text() || '').slice(0, 300); } catch (e) { body = '(读响应体失败)'; }
+      const hdrs = [];
+      try { res.headers.forEach((v, k) => hdrs.push(k + '=' + v)); } catch (e) {}
+      throw new Error('本地服务返回 HTTP ' + res.status + ' ' + res.statusText +
+                      '  ← ' + url + '\n响应体: ' + (body || '(空)') +
+                      '\n响应头: ' + (hdrs.join(' | ') || '(无)'));
+    }
+    return await res.json();
+  } finally {
+    stopKeepAlive();
   }
-  if (!res.ok) {
-    // ⚠️ 把响应体也带出来。只看状态码等于白看 ——
-    //    服务端的 400 响应体里会写明是哪个分支报的错。
-    let body = '';
-    try { body = (await res.text() || '').slice(0, 300); } catch (e) { body = '(读响应体失败)'; }
-    const hdrs = [];
-    try { res.headers.forEach((v, k) => hdrs.push(k + '=' + v)); } catch (e) {}
-    throw new Error('本地服务返回 HTTP ' + res.status + ' ' + res.statusText +
-                    '  ← ' + url + '\n响应体: ' + (body || '(空)') +
-                    '\n响应头: ' + (hdrs.join(' | ') || '(无)'));
-  }
-  return await res.json();
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
