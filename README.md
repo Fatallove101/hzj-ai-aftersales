@@ -261,7 +261,10 @@ powershell -ExecutionPolicy Bypass -File tools\mock-selftest.ps1
 
 ## 用模拟页测扩展（没有客服后台账号也能测）
 
-打开 <http://127.0.0.1:8799/mock.html>（本地服务跑起来后）
+**双击 `hzj-ai-aftersales\启动演示页面.bat`** —— 服务会起来，并自动打开演示页。
+这个页面已加进扩展的自动注入列表，**侧边栏会自己出来**，不用点图标。
+
+也可以自己开：<http://127.0.0.1:8799/mock.html>（需要先启动服务）
 
 这是一个**假装的客服后台** —— 不是产品本体，专门用来验证扩展读得准不准：
 
@@ -325,7 +328,8 @@ CSS 直接从 `extension/content.js` 提取（真实样式，非手抄），
 ```
 hzj-ai-aftersales/
 ├─ server.ps1              # 本地 HTTP 服务（TcpListener，端口 8799）
-├─ 启动网页（推荐用扩展，详见README）.bat   # 双击启动
+├─ 启动网页（推荐用扩展，详见README）.bat   双击启动（打开坐席工作台）
+├─ 启动演示页面.bat                        双击启动（打开模拟客服页，用来测扩展）
 ├─ engine/                 # 后端逻辑
 │  ├─ pipeline.ps1         #   7-Agent 管线（主流程）
 │  ├─ llm.ps1              #   模型调用 + 密钥管理 + 提示词展开

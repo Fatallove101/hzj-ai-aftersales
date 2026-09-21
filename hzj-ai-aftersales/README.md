@@ -522,7 +522,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Widt
 
 ```
 hzj-ai-aftersales/
-├─ 启动网页（推荐用扩展，详见README）.bat      双击启动（内部调 server.ps1）
+├─ 启动网页（推荐用扩展，详见README）.bat      双击启动（打开坐席工作台）
+├─ 启动演示页面.bat                            双击启动（打开模拟客服页，用来测扩展）
 ├─ server.ps1                本地服务：静态文件 + 9 个 API
 ├─ config.example.json       模型配置模板（复制成 config.local.json 后改，后者已被 git 忽略）
 ├─ README.md                 本文件

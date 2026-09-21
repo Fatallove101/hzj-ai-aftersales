@@ -6,7 +6,10 @@
 
 param(
   [int]$Port = 8799,
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  # 启动后自动打开哪个页面。默认打开坐席工作台；
+  # 用 -OpenPath /mock.html 可以改成打开模拟客服页（见 启动演示页面.bat）
+  [string]$OpenPath = '/'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -802,9 +805,9 @@ if (-not (Test-PortFree -P $Port)) {
   if (Test-IsOurServer -P $Port) {
     Write-Host ""
     Write-Host ("  端口 {0} 上已经有一个本服务在运行。" -f $Port) -ForegroundColor Yellow
-    Write-Host ("  直接打开 →  http://127.0.0.1:{0}/" -f $Port) -ForegroundColor Green
+    Write-Host ("  直接打开 →  http://127.0.0.1:{0}{1}" -f $Port, $OpenPath) -ForegroundColor Green
     Write-Host "  （如需重启：先关掉原来那个窗口，或换个端口启动）" -ForegroundColor DarkGray
-    if (-not $NoBrowser) { try { Start-Process ("http://127.0.0.1:{0}/" -f $Port) | Out-Null } catch {} }
+    if (-not $NoBrowser) { try { Start-Process ("http://127.0.0.1:{0}{1}" -f $Port, $OpenPath) | Out-Null } catch {} }
     Start-Sleep -Seconds 2
     exit 0
   }
@@ -833,7 +836,7 @@ try {
   exit 1
 }
 
-$url = "http://127.0.0.1:$Port/"
+$url = "http://127.0.0.1:$Port$OpenPath"
 Write-Host ""
 Write-Host "  服务已启动 →  $url" -ForegroundColor Green
 Write-Host "  停止服务：在本窗口按 Ctrl+C" -ForegroundColor DarkGray
