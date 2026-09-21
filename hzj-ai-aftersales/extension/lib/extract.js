@@ -1,4 +1,4 @@
-/* =====================================================================
+﻿/* =====================================================================
    lib/extract.js  ·  从页面 DOM 里把"对话"抽出来
    两条路：
      ① 适配器给的选择器能命中 → 用选择器（快、准）
@@ -80,8 +80,25 @@ AIH.findMessageList = function (root) {
     if (avgLen < 1 || avgLen > 800) continue;         // 太长的不像单条消息
     if (textSum < 20) continue;
 
-    // 打分：重复度为主，文字量为辅
-    const score = maxRepeat * 10 + Math.min(textSum / 50, 20) - Math.abs(kids.length - maxRepeat) * 0.5;
+    // 打分：重复度 + 文字量 + **可滚动性**。
+    //
+    // 踩过的坑（web\mock.html 自检实测）：
+    //   第一版 `maxRepeat * 10 + min(textSum/50, 20)` —— 重复度权重过高，
+    //   一个 5 行的键值小表格（所有 <tr> 签名相同 → maxRepeat=5）得 54.5 分，
+    //   压过真正的聊天区（4 条消息）的 50 分。
+    //   第二版只调权重又跑偏到侧边栏的三张说明卡片上。
+    //
+    // 光靠"结构重复 + 文字量"区分不了「聊天区 / 表格 / 卡片」——
+    // 但**聊天区几乎总是可滚动的**（内容会超出容器），而表格和卡片通常不是。
+    // 这个信号很可靠，加上就稳了。
+    let scrollBonus = 0;
+    try {
+      const st2 = getComputedStyle(el);
+      if (/auto|scroll/.test(st2.overflowY) || /auto|scroll/.test(st2.overflow)) scrollBonus = 15;
+    } catch (e) {}
+
+    const score = maxRepeat * 5 + Math.min(textSum / 30, 40) + scrollBonus
+                - Math.abs(kids.length - maxRepeat) * 0.5;
     if (score > bestScore) { bestScore = score; best = el; }
   }
   return best;
@@ -117,7 +134,14 @@ AIH.readList = function (listEl) {
     }
     const text = AIH.textOf(target);
     if (!text || text.length < 1) return;
-    msgs.push(AIH.makeMessage(el, AIH.detectSide(el, listEl)));
+      // 用 target（最内层文本块）的文本，而不是整行。
+      // 踩过的坑：target 上面算出来了却没用，push 的是 makeMessage(el) ——
+      // el 是整行，文本里会混进「客户 / AI客服 / 人工客服」标签和时间戳。
+      // 实测：提取出来是 "客户\nGuten Tag!..."，标签被当成正文送去做意图分析了。
+      // （msg.el 保留整行元素做锚点，全项目没有地方读它，所以只换 text 是安全的。）
+      const msg = AIH.makeMessage(el, AIH.detectSide(el, listEl));
+      msg.text = text;
+      msgs.push(msg);
   });
   return msgs;
 };

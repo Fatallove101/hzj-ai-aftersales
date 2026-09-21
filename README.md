@@ -214,16 +214,19 @@ powershell -ExecutionPolicy Bypass -File tools\layout-check.ps1 -Width 1500 -Hei
 
 # 文档引用：README 里写的项目内路径是不是真的存在
 powershell -ExecutionPolicy Bypass -File tools\check-docs.ps1
+
+# 模拟页：能否被扩展正确读取（自动识别 + 拾取两条路径）
+powershell -ExecutionPolicy Bypass -File tools\mock-selftest.ps1
 ```
 
-**九项全绿才算通过。** 完整跑一遍约 1~2 分钟
+**十项全绿才算通过。** 完整跑一遍约 1~2 分钟
 （最慢的是 `selfcheck` 的 126 条模板自检和无头浏览器的布局实测）。
 
 > `selfcheck` 与 `test-extension-contract.js` 里的端到端检查**都会真的发请求**，
 > 但 `selfcheck` 默认强制走本地（`Set-LlmForceLocal`），
 > 只有加 `-UseModel` 才连模型 —— 避免"跑个测试又慢又花钱"。
 
-### 这九项分别是
+### 这十项分别是
 
 | # | 检查 | 覆盖 |
 |---|---|---|
@@ -236,6 +239,7 @@ powershell -ExecutionPolicy Bypass -File tools\check-docs.ps1
 | 7 | `selfcheck.ps1` | 后端行为用例 + 合规闸门单元测试（默认强制本地，不调模型） |
 | 8 | `layout-check.ps1` | 无头浏览器真实测量布局 |
 | 9 | `check-docs.ps1` | 文档里引用的项目内路径是否真实存在 |
+| 10 | `mock-selftest.ps1` | 模拟页能否被扩展正确读取（自动识别 + 拾取两条路径） |
 
 ### 几个检查是"被 bug 教出来的"
 
@@ -255,6 +259,30 @@ powershell -ExecutionPolicy Bypass -File tools\check-docs.ps1
 
 ---
 
+## 用模拟页测扩展（没有客服后台账号也能测）
+
+打开 <http://127.0.0.1:8799/mock.html>（本地服务跑起来后）
+
+这是一个**假装的客服后台** —— 不是产品本体，专门用来验证扩展读得准不准：
+
+| 它能测什么 | 怎么测 |
+|---|---|
+| 「页面」读取源 | 点扩展图标 → 读取源选「页面」→ 点「换一批」 |
+| 三种说话人区分 | 页面里混着**客户 / AI客服 / 人工客服**，扩展要能分清 |
+| 「插入输入框」 | 点候选话术的「⤵ 插入输入框」，文字应出现在页面底部的输入框里 |
+| 五个演示剧本 | 德语色差 / 西语尺码 / 英语物流 / 日语瑕疵 / 中文退款 |
+
+**读不到就点页脚 `⌖` 拾取一次**「消息区」容器 —— 拾取的选择器**优先级高于自动识别**，
+而且会记住。接新平台（TikTok / Amazon 之外）时这是最靠谱的一步。
+
+> 为什么要这个页面：**我们没法拿真实客服后台做回归测试**（没有账号，且平台会改版）。
+> 有了它，扩展的读取链路可以随时验证。
+
+自检（用扩展**真实的提取代码**去跑，不是靠肉眼看）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\mock-selftest.ps1
+```
 ## 生成预览图（不装扩展也能看界面）
 
 ```powershell
