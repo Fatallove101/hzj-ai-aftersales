@@ -1061,11 +1061,17 @@
     if (!state.serverOk) {
       const ban = h('div', { class: 'banner err' });
       ban.appendChild(h('div', {
-        html: '<b>连不上本地服务</b><br>' +
-              '<code style="font-size:10.5px;background:#fafbfe;padding:2px 5px;border-radius:3px">' +
-              esc(SERVER_URL) + '/api/health</code><br>' +
-              '<span style="color:#a3282c;font-size:11px">' + esc(state.serverMsg || '(没有拿到错误信息)') + '</span>' +
-              '<br><br>请确认已在项目目录运行：<br><code style="font-size:10.5px">hzj-ai-aftersales\\启动网页（推荐用扩展，详见README）.bat</code>'
+        html: '<b>连不上本地服务</b>'
+          + '<div class="tiny" style="margin-top:5px">' + esc(SERVER_URL) + '/api/health</div>'
+          + '<div style="margin-top:6px;font-size:11.5px">' + esc(state.serverMsg || '(没有拿到错误信息)') + '</div>'
+          + '<div style="margin-top:8px;font-size:11.5px;line-height:1.7">'
+            + '扩展只是界面 —— 知识库、合规规则、模型调用<b>都在本地服务里</b>，'
+            + '所以必须先把它启动起来（浏览器扩展没法自己启动本机程序）。</div>'
+          + '<div style="margin-top:8px;font-size:11.5px">双击下面任意一个（在 <b>hzj-ai-aftersales</b> 目录里）：</div>'
+          + '<div class="tiny" style="margin-top:4px;line-height:1.9">'
+            + '・启动网页（推荐用扩展，详见README）.bat&nbsp;&nbsp;→ 打开坐席工作台<br>'
+            + '・启动演示页面.bat&nbsp;&nbsp;→ 打开模拟客服页（用来测扩展）</div>'
+          + '<div class="tiny" style="margin-top:6px">服务窗口不要关，关了扩展就用不了。</div>'
       }));
       const btnRetry = h('button', { class: 'btn sm', text: '↻ 重试连接' });
       btnRetry.onclick = async () => {
