@@ -1,4 +1,4 @@
-# 跨境销售 AI 话术助手
+# 环贸智答-跨境客服话术引擎（坐席话术副驾）
 
 > **给跨境销售客服坐席用的 AI 话术副驾。**
 > 售前咨询、售中跟进、售后纠纷 —— 借助AI发掘客户真实诉求，自动输出推荐话术，协助人工客服高效准确快速地回应客户，提升人工客服服务效率，销售成交率与客户满意度
@@ -12,7 +12,7 @@
 
 | 步骤 | 做什么 |
 |---|---|
-| **1** | 双击 `hzj-ai-aftersales\启动演示页面.bat` —— 弹出黑色窗口，显示「服务已启动」就算成功，**这个窗口别关** |
+| **1** | 双击 `环贸智答\启动演示页面.bat` —— 弹出黑色窗口，显示「服务已启动」就算成功，**这个窗口别关** |
 | **2** | **导入浏览器扩展**（下面有详细步骤） |
 | **3** | 点扩展页脚的 **🔑** 填**你自己的**千帆 API Key（第一次必须先填，否则只能用固定模板） |
 
@@ -33,10 +33,10 @@
 第 3 步   点上方出现的「加载解压缩的扩展」按钮
 
 第 4 步   在弹出的文件夹选择框里，选中这个目录：
-              hzj-ai-aftersales\extension
+              环贸智答\extension
           ⚠️ 选 extension 这一层，不要选它的上级目录
 
-第 5 步   看到「跨境销售 AI 话术助手」出现在列表里 = 成功
+第 5 步   看到「环贸智答」出现在列表里 = 成功
 
 第 6 步   打开你的客服后台页面，点浏览器右上角的扩展图标
           → 侧边栏就出来了
@@ -193,7 +193,7 @@
 |---|---|---|
 | **大模型服务** | 翻译 Agent（中↔英/西/德/法）、话术生成 Agent | 已接入并实测（`ernie-4.5-turbo-128k`） |
 | **AppBuilder 应用编排** | 1 主控 + 6 子 Agent 的编排落点 | 搭建手册：[`agent设计/04-千帆AppBuilder搭建实施手册.md`](agent设计/04-千帆AppBuilder搭建实施手册.md) |
-| **知识库检索** | 各国消费者保护法规、平台规则、案例库 | 接口已留（local / qianfan 双源），契约见 [`hzj-ai-aftersales/docs/接入千帆知识库.md`](hzj-ai-aftersales/docs/接入千帆知识库.md) |
+| **知识库检索** | 各国消费者保护法规、平台规则、案例库 | 接口已留（local / qianfan 双源），契约见 [`环贸智答/docs/接入千帆知识库.md`](环贸智答/docs/接入千帆知识库.md) |
 | **数据库节点** | 会话记录、采纳反馈、合规命中记录 | Schema 见 [`agent设计/schemas/`](agent设计/schemas/) |
 
 ### Agent 分工（1 主控 + 6 子 Agent）
@@ -212,12 +212,12 @@
 
 | 交付物 | 位置 |
 |---|---|
-| 系统提示词（7 份） | [`agent设计/prompts/`](agent设计/prompts/) 与 [`hzj-ai-aftersales/prompts/`](hzj-ai-aftersales/prompts/) |
+| 系统提示词（7 份） | [`agent设计/prompts/`](agent设计/prompts/) 与 [`环贸智答/prompts/`](环贸智答/prompts/) |
 | JSON Schema（7 份） | [`agent设计/schemas/`](agent设计/schemas/) |
 | 知识库与规则库设计 | [`agent设计/03-知识库与数据层设计.md`](agent设计/03-知识库与数据层设计.md) |
 | 千帆搭建手册 | [`agent设计/04-千帆AppBuilder搭建实施手册.md`](agent设计/04-千帆AppBuilder搭建实施手册.md) |
 | 评测与迭代方案 | [`agent设计/05-评测与迭代运营方案.md`](agent设计/05-评测与迭代运营方案.md) |
-| 可运行实现 | [`hzj-ai-aftersales/`](hzj-ai-aftersales/README.md) |
+| 可运行实现 | [`环贸智答/`](环贸智答/README.md) |
 
 ---
 
@@ -226,10 +226,10 @@
 | 目录 | 是什么 | 入口 |
 |---|---|---|
 | `agent设计/` | 完整设计方案：架构、7 份系统提示词、JSON Schema、知识库/数据库/合规规则库设计、千帆搭建手册、评测运营方案 | [`agent设计/00-交付总览.md`](agent设计/00-交付总览.md) |
-| `hzj-ai-aftersales/` | **可运行的本地演示**（后端 + 网页版） | [`hzj-ai-aftersales/README.md`](hzj-ai-aftersales/README.md) |
-| `hzj-ai-aftersales/extension/` | **浏览器扩展**：在客服后台右侧挂侧边栏，读对话 → 出话术 → 一键插入输入框 | [`hzj-ai-aftersales/extension/README.md`](hzj-ai-aftersales/extension/README.md) |
+| `环贸智答/` | **可运行的本地演示**（后端 + 网页版） | [`环贸智答/README.md`](环贸智答/README.md) |
+| `环贸智答/extension/` | **浏览器扩展**：在客服后台右侧挂侧边栏，读对话 → 出话术 → 一键插入输入框 | [`环贸智答/extension/README.md`](环贸智答/extension/README.md) |
 
-原始需求文档：`跨境电商跨境销售AI话术助手——基于百度千帆的多语言客服能力提升系统项目申报书(2).docx`
+原始需求文档：`汉正街跨境售后AI话术助手——基于百度千帆的多语言客服能力提升系统项目申报书(2).docx`
 （文件名保留原样，是大赛报名材料）
 
 ---
@@ -238,7 +238,7 @@
 > 里面写了怎么导入扩展、怎么填自己的 API Key、怎么接知识库、出问题怎么办。
 ## 30 秒跑起来
 
-**双击 `hzj-ai-aftersales\启动网页（推荐用扩展，详见README）.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>
+**双击 `环贸智答\启动网页（推荐用扩展，详见README）.bat`**，浏览器会自动打开 <http://127.0.0.1:8799/>
 
 **零依赖**：不需要 Python、Node，也不需要管理员权限。
 只用系统自带的 PowerShell 5.1 + Windows 内置 OCR。
@@ -276,7 +276,7 @@ powershell -ExecutionPolicy Bypass -File tools\autostart.ps1 -Uninstall
 
 1. 打开 `edge://extensions/`（Chrome 用 `chrome://extensions/`）
 2. 打开「**开发人员模式**」
-3. 点「**加载解压缩的扩展**」，选 `hzj-ai-aftersales\extension` 目录
+3. 点「**加载解压缩的扩展**」，选 `环贸智答\extension` 目录
 4. 打开客服后台页面，右上角出现 **AI 悬浮球**，点开即用
 
 **首次使用要校准一次**（30 秒）：
@@ -323,7 +323,7 @@ powershell -ExecutionPolicy Bypass -File tools\autostart.ps1 -Uninstall
 - **日志脱敏**：请求体落盘前过 `Protect-LogBody` —— 密钥类字段整值抹掉、
   正文类字段只留长度不留内容、任何 `bce-v3/` 串一律打码
   > ⚠️ **v0.33.0 之前这条是假的**：`Write-ReqLog` 会把原始请求体整行写进
-  > `hzj-ai-aftersales\logs\requests.log`，保存密钥那次请求把**密钥明文**落了盘，
+  > `环贸智答\logs\requests.log`，保存密钥那次请求把**密钥明文**落了盘，
   > 分析请求还把**客户对话原文**落了盘（实测 118 行）。
   > 已修 + 已删除存量日志。详见 CHANGELOG 或 commit `v0.33.0`。
 
@@ -483,7 +483,7 @@ powershell -ExecutionPolicy Bypass -File tools\mock-selftest.ps1
 
 ## 用模拟页测扩展（没有客服后台账号也能测）
 
-**双击 `hzj-ai-aftersales\启动演示页面.bat`** —— 服务会起来，并自动打开演示页。
+**双击 `环贸智答\启动演示页面.bat`** —— 服务会起来，并自动打开演示页。
 这个页面已加进扩展的自动注入列表，**侧边栏会自己出来**，不用点图标。
 
 也可以自己开：<http://127.0.0.1:8799/mock.html>（需要先启动服务）
@@ -525,7 +525,7 @@ CSS 直接从 `extension/content.js` 提取（真实样式，非手抄），
 - **合规规则库是 `seed` 数据，标注"待法务确认"** —— 这是**工程数据，不是法律意见**。
   上线前必须经法务逐条核对。同理 `policy_index.csv`。
 - **千帆知识库路径尚未对接真实接口** —— 契约已定义（见
-  [`hzj-ai-aftersales/docs/接入千帆知识库.md`](hzj-ai-aftersales/docs/接入千帆知识库.md)），
+  [`环贸智答/docs/接入千帆知识库.md`](环贸智答/docs/接入千帆知识库.md)），
   字段名不同只需改 `engine/knowledge.ps1` 的映射。当前会**显式降级到本地 CSV** 并说明原因。
 - **TikTok Shop 的选择器未在真实后台验证**（没有账号），需实机校准一次。
 - **本地模式的翻译只有术语级对照**，整句译文需要模型。
@@ -548,7 +548,7 @@ CSS 直接从 `extension/content.js` 提取（真实样式，非手抄），
 ## 目录速查
 
 ```
-hzj-ai-aftersales/
+环贸智答/
 ├─ server.ps1              # 本地 HTTP 服务（TcpListener，端口 8799）
 ├─ 启动网页（推荐用扩展，详见README）.bat   双击启动（打开坐席工作台）
 ├─ 启动演示页面.bat                        双击启动（打开模拟客服页，用来测扩展）

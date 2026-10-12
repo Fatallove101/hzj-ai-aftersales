@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="1230" viewBox="0 0 1300 1230">
+  <rect width="1300" height="1230" fill="#ffffff"/>
+
+  <!-- 标题 -->
+  <rect x="40" y="28" width="1140" height="76" rx="10" fill="#1a3a6b"/>
+  <text x="610" y="62" font-family="Microsoft YaHei" font-size="25" font-weight="bold" fill="#ffffff" text-anchor="middle">环贸智答-跨境客服话术引擎 · 智能体功能架构</text>
+  <text x="610" y="90" font-family="Microsoft YaHei" font-size="14.5" fill="#b9cde8" text-anchor="middle">平台：百度千帆 AppBuilder　|　形态：自主规划 Agent　|　面向跨境销售客服坐席</text>
+
+  <!-- ===== 输入层 ===== -->
+  <rect x="40" y="128" width="1140" height="66" rx="8" fill="#f2f5f9" stroke="#9fb0c4" stroke-width="2"/>
+  <text x="62" y="156" font-family="Microsoft YaHei" font-size="15" font-weight="bold" fill="#41546b">输入层</text>
+  <text x="62" y="179" font-family="Microsoft YaHei" font-size="13.5" fill="#41546b">坐席粘贴的客户原始消息（任意语言，可含订单号）</text>
+  <text x="1158" y="164" font-family="Microsoft YaHei" font-size="12.5" fill="#8598ad" text-anchor="end">人工坐席触发</text>
+
+  <path d="M610 194 L610 218" stroke="#8899aa" stroke-width="2.5" marker-end="url(#ar)"/>
+
+  <!-- ===== 角色指令层 ===== -->
+  <rect x="40" y="224" width="1140" height="146" rx="8" fill="#e8f0fe" stroke="#4a7fd4" stroke-width="2.5"/>
+  <text x="62" y="252" font-family="Microsoft YaHei" font-size="15" font-weight="bold" fill="#1f4b8f">角色指令层 · Agent 决策中枢（约 2818 字）</text>
+  <rect x="62" y="266" width="256" height="86" rx="6" fill="#ffffff" stroke="#a8c4ea"/>
+  <text x="190" y="290" font-family="Microsoft YaHei" font-size="13.5" font-weight="bold" fill="#1f4b8f" text-anchor="middle">对象隔离</text>
+  <text x="190" y="313" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">输出是给坐席的建议</text>
+  <text x="190" y="333" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">不模拟与客户对话</text>
+
+  <rect x="334" y="266" width="256" height="86" rx="6" fill="#ffffff" stroke="#a8c4ea"/>
+  <text x="462" y="290" font-family="Microsoft YaHei" font-size="13.5" font-weight="bold" fill="#1f4b8f" text-anchor="middle">硬性红线</text>
+  <text x="462" y="313" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">禁承诺金额时效 / 索要隐私</text>
+  <text x="462" y="333" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">禁站外交易 / 绝对化用语</text>
+
+  <rect x="606" y="266" width="256" height="86" rx="6" fill="#ffffff" stroke="#a8c4ea"/>
+  <text x="734" y="290" font-family="Microsoft YaHei" font-size="13.5" font-weight="bold" fill="#1f4b8f" text-anchor="middle">四步工作流</text>
+  <text x="734" y="313" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">解析 → 检索 → 生成</text>
+  <text x="734" y="333" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">→ 合规自检</text>
+
+  <rect x="878" y="266" width="280" height="86" rx="6" fill="#ffffff" stroke="#a8c4ea"/>
+  <text x="1018" y="290" font-family="Microsoft YaHei" font-size="13.5" font-weight="bold" fill="#1f4b8f" text-anchor="middle">输出格式规范</text>
+  <text x="1018" y="313" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">客户说了什么 / 政策依据</text>
+  <text x="1018" y="333" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">候选话术 / 风险提示</text>
+
+  <path d="M610 370 L610 394" stroke="#8899aa" stroke-width="2.5" marker-end="url(#ar)"/>
+
+  <!-- ===== 处理流程 ===== -->
+  <rect x="40" y="400" width="1140" height="108" rx="8" fill="#f7f9fc" stroke="#b8c6d6" stroke-width="2"/>
+  <text x="62" y="426" font-family="Microsoft YaHei" font-size="14" font-weight="bold" fill="#41546b">处理流程</text>
+
+  <rect x="62" y="438" width="248" height="52" rx="26" fill="#dbe8fa" stroke="#6f9fd8"/>
+  <text x="186" y="461" font-family="Microsoft YaHei" font-size="13" font-weight="bold" fill="#1f4b8f" text-anchor="middle">① 深度解析</text>
+  <text x="186" y="480" font-family="Microsoft YaHei" font-size="11" fill="#41546b" text-anchor="middle">语言 / 意图 / 情绪 / 紧急度</text>
+
+  <rect x="338" y="438" width="248" height="52" rx="26" fill="#dbe8fa" stroke="#6f9fd8"/>
+  <text x="462" y="461" font-family="Microsoft YaHei" font-size="13" font-weight="bold" fill="#1f4b8f" text-anchor="middle">② 证据检索</text>
+  <text x="462" y="480" font-family="Microsoft YaHei" font-size="11" fill="#41546b" text-anchor="middle">四类知识源 / 术语对齐</text>
+
+  <rect x="614" y="438" width="248" height="52" rx="26" fill="#dbe8fa" stroke="#6f9fd8"/>
+  <text x="738" y="461" font-family="Microsoft YaHei" font-size="13" font-weight="bold" fill="#1f4b8f" text-anchor="middle">③ 策略生成</text>
+  <text x="738" y="480" font-family="Microsoft YaHei" font-size="11" fill="#41546b" text-anchor="middle">3 条候选（安抚/答疑/合规）</text>
+
+  <rect x="890" y="438" width="268" height="52" rx="26" fill="#fbe3e3" stroke="#d47a7a"/>
+  <text x="1024" y="461" font-family="Microsoft YaHei" font-size="13" font-weight="bold" fill="#a03030" text-anchor="middle">④ 合规自检</text>
+  <text x="1024" y="480" font-family="Microsoft YaHei" font-size="11" fill="#41546b" text-anchor="middle">逐条对照红线，命中即重写</text>
+
+  <path d="M310 464 L334 464" stroke="#8899aa" stroke-width="2" marker-end="url(#ar2)"/>
+  <path d="M586 464 L610 464" stroke="#8899aa" stroke-width="2" marker-end="url(#ar2)"/>
+  <path d="M862 464 L886 464" stroke="#8899aa" stroke-width="2" marker-end="url(#ar2)"/>
+
+  <path d="M610 508 L610 532" stroke="#8899aa" stroke-width="2.5" marker-end="url(#ar)"/>
+
+  <!-- ===== 知识源层（5 类）===== -->
+  <rect x="40" y="538" width="1140" height="160" rx="8" fill="#e9f7ef" stroke="#46a06b" stroke-width="2.5"/>
+  <text x="62" y="566" font-family="Microsoft YaHei" font-size="15" font-weight="bold" fill="#1f6b43">能力来源层 · 五类（按需调用）</text>
+
+  <rect x="62" y="580" width="206" height="100" rx="6" fill="#ffffff" stroke="#9ed4b6"/>
+  <text x="165" y="604" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#1f6b43" text-anchor="middle">政策与规则知识库</text>
+  <text x="165" y="626" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">各国政策 20 条</text>
+  <text x="165" y="645" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">合规规则 30 条</text>
+  <text x="165" y="667" font-family="Microsoft YaHei" font-size="10" fill="#7b8a99" text-anchor="middle">按标题切分 · 重排 top_k=8</text>
+
+  <rect x="284" y="580" width="206" height="100" rx="6" fill="#fffbe8" stroke="#e0b93c" stroke-width="2"/>
+  <text x="387" y="604" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#8a6a10" text-anchor="middle">平台记忆能力</text>
+  <text x="387" y="626" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">记忆变量 / 记忆表 / 记忆片段</text>
+  <text x="387" y="645" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">沉淀采纳话术与对话状态</text>
+  <text x="387" y="667" font-family="Microsoft YaHei" font-size="10" fill="#8a6a10" text-anchor="middle">由数据闭环持续写入</text>
+
+  <rect x="506" y="580" width="206" height="100" rx="6" fill="#ffffff" stroke="#9ed4b6"/>
+  <text x="609" y="604" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#1f6b43" text-anchor="middle">业务数据库</text>
+  <text x="609" y="626" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">订单 / 物流 / 商品</text>
+  <text x="609" y="645" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">宽表 20 列 8 条</text>
+  <text x="609" y="667" font-family="Microsoft YaHei" font-size="10" fill="#7b8a99" text-anchor="middle">出现订单号时生成查询</text>
+
+  <rect x="728" y="580" width="206" height="100" rx="6" fill="#ffffff" stroke="#9ed4b6"/>
+  <text x="831" y="604" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#1f6b43" text-anchor="middle">专业词库 · 同义词</text>
+  <text x="831" y="626" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">46 条</text>
+  <text x="831" y="645" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">中 / 英 / 德 / 西 / 法五语</text>
+  <text x="831" y="667" font-family="Microsoft YaHei" font-size="10" fill="#7b8a99" text-anchor="middle">色差 → Farbabweichung</text>
+
+  <rect x="950" y="580" width="208" height="100" rx="6" fill="#ffffff" stroke="#9ed4b6"/>
+  <text x="1054" y="604" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#1f6b43" text-anchor="middle">专业词库 · 专有名词</text>
+  <text x="1054" y="626" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">21 条</text>
+  <text x="1054" y="645" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">法规术语 + 服装行业术语</text>
+  <text x="1054" y="667" font-family="Microsoft YaHei" font-size="10" fill="#7b8a99" text-anchor="middle">"重大故障"的法律含义</text>
+
+  <path d="M610 698 L610 722" stroke="#8899aa" stroke-width="2.5" marker-end="url(#ar)"/>
+
+  <!-- ===== 输出层 ===== -->
+  <rect x="40" y="728" width="1140" height="120" rx="8" fill="#fff4e5" stroke="#e08a3c" stroke-width="2.5"/>
+  <text x="62" y="756" font-family="Microsoft YaHei" font-size="15" font-weight="bold" fill="#a35c14">输出层 · 给坐席的作战建议（不直接对客户发送）</text>
+
+  <rect x="62" y="768" width="746" height="60" rx="6" fill="#ffffff" stroke="#f0c9a0"/>
+  <text x="435" y="791" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#a35c14" text-anchor="middle">3 条候选话术：安抚致歉型 / 专业答疑型 / 合规告知型</text>
+  <text x="435" y="813" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">每条 = 目标语言版（可直接发送）+ 中文对照 + 依据引用（来源编号）</text>
+
+  <rect x="826" y="768" width="332" height="60" rx="6" fill="#ffffff" stroke="#f0c9a0"/>
+  <text x="992" y="791" font-family="Microsoft YaHei" font-size="12.5" font-weight="bold" fill="#a35c14" text-anchor="middle">风险提示</text>
+  <text x="992" y="813" font-family="Microsoft YaHei" font-size="11.5" fill="#41546b" text-anchor="middle">人工核实点 / 高风险标记 / 依据缺失说明</text>
+
+  <path d="M610 848 L610 872" stroke="#8899aa" stroke-width="2.5" marker-end="url(#ar)"/>
+
+  <!-- ===== 数据闭环层 ===== -->
+  <rect x="40" y="878" width="1140" height="126" rx="8" fill="#fdf3f8" stroke="#c060a0" stroke-width="2.5" stroke-dasharray="9,4"/>
+  <text x="62" y="906" font-family="Microsoft YaHei" font-size="15" font-weight="bold" fill="#8a3070">数据闭环层 · 采纳即沉淀（写入平台记忆，不挂在实时链路上）</text>
+
+  <rect x="62" y="920" width="196" height="66" rx="6" fill="#ffffff" stroke="#e0a8cc"/>
+  <text x="160" y="945" font-family="Microsoft YaHei" font-size="11.5" font-weight="bold" fill="#8a3070" text-anchor="middle">① 坐席采纳 / 修改</text>
+  <text x="160" y="966" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">记录采纳与改动幅度</text>
+
+  <rect x="282" y="920" width="196" height="66" rx="6" fill="#ffffff" stroke="#e0a8cc"/>
+  <text x="380" y="945" font-family="Microsoft YaHei" font-size="11.5" font-weight="bold" fill="#8a3070" text-anchor="middle">② 生成对话记录</text>
+  <text x="380" y="966" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">客户诉求 + 最终回复</text>
+
+  <rect x="502" y="920" width="196" height="66" rx="6" fill="#ffffff" stroke="#e0a8cc"/>
+  <text x="600" y="945" font-family="Microsoft YaHei" font-size="11.5" font-weight="bold" fill="#8a3070" text-anchor="middle">③ 脱敏与质量标注</text>
+  <text x="600" y="966" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">去姓名地址订单号等隐私</text>
+
+  <rect x="722" y="920" width="196" height="66" rx="6" fill="#ffffff" stroke="#e0a8cc"/>
+  <text x="820" y="945" font-family="Microsoft YaHei" font-size="11.5" font-weight="bold" fill="#8a3070" text-anchor="middle">④ 写入平台记忆</text>
+  <text x="820" y="966" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">按字段结构化存储</text>
+
+  <rect x="942" y="920" width="216" height="66" rx="6" fill="#fbe9f4" stroke="#c060a0" stroke-width="2"/>
+  <text x="1050" y="945" font-family="Microsoft YaHei" font-size="11.5" font-weight="bold" fill="#8a3070" text-anchor="middle">⑤ 相似问题命中反哺</text>
+  <text x="1050" y="966" font-family="Microsoft YaHei" font-size="10.5" fill="#41546b" text-anchor="middle">作为下一轮推荐的依据</text>
+
+  <path d="M258 953 L278 953" stroke="#c060a0" stroke-width="2" marker-end="url(#ar3)"/>
+  <path d="M478 953 L498 953" stroke="#c060a0" stroke-width="2" marker-end="url(#ar3)"/>
+  <path d="M698 953 L718 953" stroke="#c060a0" stroke-width="2" marker-end="url(#ar3)"/>
+  <path d="M918 953 L938 953" stroke="#c060a0" stroke-width="2" marker-end="url(#ar3)"/>
+
+  <!-- 闭环回流：从数据闭环层沿左侧上行回到知识源层 -->
+  <path d="M40 953 L14 953 L14 618 L36 618" fill="none" stroke="#c060a0" stroke-width="2.5" stroke-dasharray="8,4" marker-end="url(#ar3)"/>
+  <text x="9" y="800" font-family="Microsoft YaHei" font-size="12" font-weight="bold" fill="#8a3070" text-anchor="middle" transform="rotate(-90 9 800)">闭环回流 · 反哺知识源</text>
+
+  <!-- 页脚说明 -->
+  <text x="40" y="1046" font-family="Microsoft YaHei" font-size="13" font-weight="bold" fill="#41546b">关键设计取舍</text>
+  <text x="40" y="1070" font-family="Microsoft YaHei" font-size="12" fill="#5a6b7d">· 采用「工作流式固定步骤」而非「让模型自由决定调用谁」——合规校验必须确定性执行，不能靠模型自觉。</text>
+  <text x="40" y="1092" font-family="Microsoft YaHei" font-size="12" fill="#5a6b7d">· 「有据才说」是最高优先级约束：任何政策表述必须能对应到知识库来源编号，查不到依据时标注「无依据」而非编造。</text>
+  <text x="40" y="1114" font-family="Microsoft YaHei" font-size="12" fill="#5a6b7d">· 「合规自检」被要求输出成可见的「风险提示」，而不是让模型自称「已检查」——使约束可验证。</text>
+  <text x="40" y="1136" font-family="Microsoft YaHei" font-size="12" fill="#5a6b7d">· 数据闭环只沉淀「已采纳」的话术，且必须先脱敏后归档——避免把未经验证的输出与客户隐私带进知识库。</text>
+  <text x="40" y="1158" font-family="Microsoft YaHei" font-size="12" fill="#5a6b7d">· 记忆片段会长期留存用户信息，客服场景下同一 Agent 服务多个客户，须评估是否开启或做隔离，避免跨客户信息串用。</text>
+  <text x="40" y="1180" font-family="Microsoft YaHei" font-size="11.5" fill="#8598ad">图注：本图由「环贸智答」参赛队依据实际平台配置绘制。知识库 / 数据库 / 专业词库均为参赛者自建内容，非平台预置。</text>
+  <text x="40" y="1206" font-family="Microsoft YaHei" font-size="11.5" fill="#b06a94">说明：数据闭环已完成链路设计与架构设计，历史数据的自动沉淀与反哺检索尚未上线验证。</text>
+
+  <defs>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 z" fill="#8899aa"/>
+    </marker>
+    <marker id="ar2" markerWidth="9" markerHeight="9" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 z" fill="#8899aa"/>
+    </marker>
+    <marker id="ar3" markerWidth="9" markerHeight="9" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 z" fill="#c060a0"/>
+    </marker>
+  </defs>
+</svg>

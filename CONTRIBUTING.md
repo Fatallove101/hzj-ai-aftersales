@@ -11,8 +11,8 @@
 | 目录 | 内容 | 入口 |
 |---|---|---|
 | `agent设计/` | 设计方案：1 主控 + 6 子 Agent、7 份提示词、JSON Schema、知识库/数据库/合规规则库、千帆搭建手册、评测方案 | `agent设计/00-交付总览.md` |
-| `hzj-ai-aftersales/` | 可运行的本地演示（Web 工作台） | `hzj-ai-aftersales/README.md` |
-| `hzj-ai-aftersales/extension/` | 浏览器扩展原型（TikTok Shop 侧边栏） | `hzj-ai-aftersales/extension/README.md` |
+| `环贸智答/` | 可运行的本地演示（Web 工作台） | `环贸智答/README.md` |
+| `环贸智答/extension/` | 浏览器扩展原型（TikTok Shop 侧边栏） | `环贸智答/extension/README.md` |
 
 ---
 
@@ -34,11 +34,11 @@
 
 ```powershell
 # 启动本地演示（双击也行）
-.\hzj-ai-aftersales\启动网页（推荐用扩展，详见README）.bat
+.\环贸智答\启动网页（推荐用扩展，详见README）.bat
 # 然后浏览器打开 http://127.0.0.1:8799/
 ```
 
-扩展：浏览器 `edge://extensions/` → 开「开发人员模式」→「加载解压缩的扩展」→ 选 `hzj-ai-aftersales\extension` 文件夹。
+扩展：浏览器 `edge://extensions/` → 开「开发人员模式」→「加载解压缩的扩展」→ 选 `环贸智答\extension` 文件夹。
 
 ---
 
@@ -68,9 +68,9 @@ HTML / CSS / JS / CSV **不需要** BOM（编码由 HTTP 头或 `-Encoding UTF8`
 
 ### 2. 绝对不要提交密钥
 
-- API Key 用 **Windows DPAPI 加密**存在 `%APPDATA%\hzj-agent\`（或兜底的 `hzj-ai-aftersales\.secrets\`），**不在仓库里**
+- API Key 用 **Windows DPAPI 加密**存在 `%APPDATA%\hzj-agent\`（或兜底的 `环贸智答\.secrets\`），**不在仓库里**
 - 两个位置都已被 `.gitignore` 挡住
-- 配置模板是 `hzj-ai-aftersales/config.example.json`；本地实际配置 `config.local.json` **不要提交**
+- 配置模板是 `环贸智答/config.example.json`；本地实际配置 `config.local.json` **不要提交**
 - 提交前如果你不确定，跑一遍：
 
 ```powershell
@@ -85,17 +85,17 @@ git ls-files | Select-String 'credential|\.secrets|config\.local'   # 应该为�
 
 ```powershell
 # 后端逻辑
-powershell -NoProfile -ExecutionPolicy Bypass -File .\hzj-ai-aftersales\tools\selfcheck.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\环贸智答\tools\selfcheck.ps1
 
 # 前端/扩展 JS 语法（Node 真解析；Node 装在 C:\Program Files\nodejs\node.exe）
-Get-ChildItem -Recurse -Filter *.js .\hzj-ai-aftersales\web, .\hzj-ai-aftersales\extension |
+Get-ChildItem -Recurse -Filter *.js .\环贸智答\web, .\环贸智答\extension |
   ForEach-Object { & "C:\Program Files\nodejs\node.exe" --check $_.FullName }
 
 # 双语渲染单元测试
-& "C:\Program Files\nodejs\node.exe" .\hzj-ai-aftersales\tools\test-render.js
+& "C:\Program Files\nodejs\node.exe" .\环贸智答\tools\test-render.js
 
 # 布局实测（无头 Edge，会自己起专用端口）
-powershell -NoProfile -ExecutionPolicy Bypass -File .\hzj-ai-aftersales\tools\layout-check.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\环贸智答\tools\layout-check.ps1
 ```
 
 四项全绿再提交。当前状态：**全部通过**。
@@ -106,23 +106,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\hzj-ai-aftersales\tools\la
 
 | 想改什么 | 改哪个文件 | 注意 |
 |---|---|---|
-| 界面布局 / 样式 | `hzj-ai-aftersales/web/index.html`、`style.css` | 改完跑 `layout-check.ps1` |
-| 界面渲染逻辑 | `hzj-ai-aftersales/web/app.js` | 改完跑 `test-render.js` |
-| 意图识别 / 话术模板 | `hzj-ai-aftersales/engine/pipeline.ps1` | 改完跑 `selfcheck.ps1` |
-| 合规规则 | `agent设计/data/compliance_rules.csv` | **改完必须复制到 `hzj-ai-aftersales/data/`**，见下 |
+| 界面布局 / 样式 | `环贸智答/web/index.html`、`style.css` | 改完跑 `layout-check.ps1` |
+| 界面渲染逻辑 | `环贸智答/web/app.js` | 改完跑 `test-render.js` |
+| 意图识别 / 话术模板 | `环贸智答/engine/pipeline.ps1` | 改完跑 `selfcheck.ps1` |
+| 合规规则 | `agent设计/data/compliance_rules.csv` | **改完必须复制到 `环贸智答/data/`**，见下 |
 | 上游提示词 | `agent设计/prompts/*.md` | 同上，且模型调用是直接从 md 抽代码块 |
-| 各平台 DOM 适配 | `hzj-ai-aftersales/extension/adapters/*.js` | 新增平台 = 加一个文件 + 注册一行 |
-| 读取方式 | `hzj-ai-aftersales/engine/reader.ps1`（UIA/剪贴板）、`ocr.ps1`（OCR） | — |
+| 各平台 DOM 适配 | `环贸智答/extension/adapters/*.js` | 新增平台 = 加一个文件 + 注册一行 |
+| 读取方式 | `环贸智答/engine/reader.ps1`（UIA/剪贴板）、`ocr.ps1`（OCR） | — |
 
 ### 数据文件是"两份"的（容易漏）
 
-`agent设计/data/` 是**源头**，`hzj-ai-aftersales/data/` 是演示用的**副本**。改了源头要同步：
+`agent设计/data/` 是**源头**，`环贸智答/data/` 是演示用的**副本**。改了源头要同步：
 
 ```powershell
-Copy-Item .\agent设计\data\*.csv .\hzj-ai-aftersales\data\ -Force
+Copy-Item .\agent设计\data\*.csv .\环贸智答\data\ -Force
 ```
 
-（之所以不共用，是为了让 `hzj-ai-aftersales/` 能独立拷走运行。）
+（之所以不共用，是为了让 `环贸智答/` 能独立拷走运行。）
 
 ### 意图标签是"单一真源 + 四处引用"
 
@@ -165,13 +165,13 @@ fix(web): 候选卡片被 flex 压扁导致内容被裁
 | 扩展读不到对话 | 平台 DOM 与推测的选择器不符 | 点侧边栏 ⚙ 用**拾取器**现场教一次 |
 | 某列滚不动 | 布局链上缺 `min-height:0`，或 flex 子项被压扁 | 跑 `layout-check.ps1` 看实测数据 |
 | 模型没生效 | `provider` 还是 `local`，或没配 Key | 跑 `tools\test-model.ps1 -DryRun` 核对 |
-| 改了规则没生效 | 只改了 `agent设计/data/`，没同步到 `hzj-ai-aftersales/data/` | 见第五节 |
+| 改了规则没生效 | 只改了 `agent设计/data/`，没同步到 `环贸智答/data/` | 见第五节 |
 
 ---
 
 ## 八、不要做的事
 
-- ❌ 提交 `hzj-ai-aftersales/logs/`（运行产物，已忽略）
+- ❌ 提交 `环贸智答/logs/`（运行产物，已忽略）
 - ❌ 提交 `config.local.json` / `credential.dat` / `.secrets/`
 - ❌ 在代码里硬编码 API Key 或商户真实数据
 - ❌ 把 `case_kb` 里未脱敏的真实客户对话提交上来
