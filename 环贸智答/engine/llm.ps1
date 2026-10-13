@@ -150,7 +150,12 @@ function Get-ModelConfig {
     provider = 'local'                 # local | qianfan
     endpoint = ''
     model    = ''
-    timeout  = 30
+    # 默认 90 秒。原来是 30 秒 —— 对大模型生成太紧：
+    # 一次完整话术（中文 + 外文 + 依据）实测经常要 30~60 秒，
+    # 于是"没在配置里显式写 timeout 的用户必然超时"，
+    # 而且失败后是静默回退本地模板，界面上完全看不出。
+    # 实测：另一台电脑就是踩了这个默认值。
+    timeout  = 90
   }
   if ($script:ForceLocal) {
     $default.provider = 'local'
@@ -291,7 +296,10 @@ function Invoke-LLM {
     # 之前只报 "The remote server returned an error: (404) Not Found"，
     # 完全看不出是 endpoint 少拼了 /chat/completions（排查绕了很久）。
     $u = Resolve-ChatUrl -Endpoint $cfg.endpoint
-    $detail = $_.Exception.Message
+    # 带上本次**实际生效**的超时上限。
+    # 原来只说"操作超时"，看不出是 30 秒还是 90 秒在生效 ——
+    # 排查时只能靠猜（实测就因此绕了一圈）。
+    $detail = $_.Exception.Message + "（本次超时上限 " + $cfg.timeout + " 秒）"
     if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
       $detail = $detail + ' | ' + $_.ErrorDetails.Message
     }
