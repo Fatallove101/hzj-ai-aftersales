@@ -225,21 +225,24 @@ function Invoke-Retrieval {
 # A4 话术生成（模板版）
 # ---------------------------------------------------------------------
 function Get-CandidateTemplates {
-  param([string]$Intent, [string]$CountryZh, [string]$Days, [string]$Payer)
+  param([string]$Intent, [string]$CountryZh, [string]$CountryEn, [string]$Days, [string]$DaysEn, [string]$Payer)
   $d = $Days; if ([string]::IsNullOrWhiteSpace($d) -or $d -eq 'NA') { $d = '按平台规则' }
   $p = $Payer; if ([string]::IsNullOrWhiteSpace($p) -or $p -eq 'NA') { $p = '按责任认定' }
-
+  # 英文版天数。为什么要单独一份：$d 的值是中文的「14 天」，
+  # 直接拼进英文模板会变成 "exchange, 14 天" —— 和 "this 未知 order" 是同一类问题。
+  $dEn = $DaysEn
+  if ([string]::IsNullOrWhiteSpace($dEn) -or $dEn -eq 'NA') { $dEn = 'in line with the platform rules' }
   $all = @{
     'refund' = @(
-      @{ style='安抚致歉'; zh="非常抱歉给您带来不好的体验，$CountryZh 订单遇到这样的问题我们很重视。您可以选择退款或换货，我们会全程配合您处理，退回运费不需要您承担。方便的话请提供一张实物照片，我们立刻为您安排。";
-         en="We are very sorry about your experience with this $CountryZh order. You may choose a refund or an exchange, and we will support you through the whole process. Return shipping is on us. If you can send a photo of the item, we will arrange it right away.";
+      @{ style='安抚致歉'; zh="非常抱歉给您带来不好的体验，您的订单遇到这样的问题我们很重视。您可以选择退款或换货，我们会全程配合您处理，退回运费不需要您承担。方便的话请提供一张实物照片，我们立刻为您安排。";
+         en="We are very sorry about your experience with this order. You may choose a refund or an exchange, and we will support you through the whole process. Return shipping is on us. If you can send a photo of the item, we will arrange it right away.";
          es="Lamentamos mucho su experiencia con este pedido. Puede elegir el reembolso o el cambio, y le acompañaremos en todo el proceso. Los gastos de devolución corren por nuestra cuenta. Si puede enviarnos una foto, lo gestionaremos de inmediato.";
          next='请客户提供实物照片' }
       @{ style='纠纷调解'; zh="我们已经核对了您的订单，正在按 $CountryZh 的消费者保护规定处理。按照当地规定，商品存在瑕疵时您有权选择退款或换货，$d。我们会在核实后第一时间告知您方案。";
-         en="We have reviewed your order and are handling it in line with $CountryZh consumer protection rules. Under local rules, when an item is defective you may choose a refund or an exchange, $d. We will update you with a solution as soon as verification is complete.";
+         en="We have reviewed your order and are handling it in line with the consumer protection rules of $CountryEn. Under local rules, when an item is defective you may choose a refund or an exchange, $dEn. We will update you with a solution as soon as verification is complete.";
          next='创建退款或换货工单' }
       @{ style='合规告知'; zh="关于您的退款申请，我们说明一下处理口径：依据 $CountryZh 的相关规定，商品不符合约定时您享有退款或换货的权利，退回商品的运费承担方为：$p。我们会依照这一口径为您执行。";
-         en="Regarding your refund request, here is our handling position: under the applicable rules in $CountryZh, when goods do not conform you are entitled to a refund or exchange. Responsibility for return shipping: $p. We will proceed on that basis.";
+         en="Regarding your refund request, here is our handling position: under the applicable rules in $CountryEn, when goods do not conform you are entitled to a refund or exchange. We will confirm who bears the return-shipping cost in line with the applicable rules, and proceed on that basis.";
          next='在工单中记录适用政策依据' }
     )
     'quality_defect' = @(
@@ -251,7 +254,7 @@ function Get-CandidateTemplates {
          en="About the quality issue you reported, here is how we assess it: under our QC standard this falls within the range that can be classed as a defect. To verify accurately we need the care label and a photo, then we will give you a clear resolution.";
          next='索取标签与实物照片' }
       @{ style='纠纷调解'; zh="我们非常重视您反馈的问题。按照 $CountryZh 的相关规定，商品存在瑕疵时您可以选择退款或换货，$d，退回运费由我们承担。我们正在与相关方核实，同时已先行为您开通处理通道。";
-         en="We take your issue seriously. Under the applicable rules in $CountryZh, when an item is defective you may choose a refund or exchange, $d, and return shipping is on us. We are verifying with the relevant party and have already opened a case for you.";
+         en="We take your issue seriously. Under the applicable rules in $CountryEn, when an item is defective you may choose a refund or exchange, $dEn, and return shipping is on us. We are verifying with the relevant party and have already opened a case for you.";
          next='创建工单并标注运费承担方' }
     )
     'color_diff' = @(
@@ -262,7 +265,7 @@ function Get-CandidateTemplates {
          en="On colour variation, here is the industry position: the same fabric batch can look slightly different under different lighting and screens, which is normally not a defect. However, if it clearly differs from the listing description, the goods do not conform and you may request an exchange or refund.";
          next='核对页面描述与实物照片' }
       @{ style='合规告知'; zh="依据 $CountryZh 的相关规定，商品与描述不符时您有权要求换货或退款。我们会按此口径处理您的申请，退回运费由我们承担。";
-         en="Under the applicable rules in $CountryZh, when goods do not match the description you are entitled to an exchange or refund. We will handle your request on that basis, and return shipping is on us.";
+         en="Under the applicable rules in $CountryEn, when goods do not match the description you are entitled to an exchange or refund. We will handle your request on that basis, and return shipping is on us.";
          next='记录政策依据并推进换货' }
     )
     'sizing' = @(
@@ -395,15 +398,17 @@ function Get-CandidateTemplates {
 function New-Candidates {
   param($Analysis, $Retrieval, $Rewrite, [string]$Country='UNKNOWN')
   $countryZh = Get-CountryZh -Code $Country
-  $days = ''; $payer = ''
+  $countryEn = Get-CountryEn -Code $Country
+  $days = ''; $daysEn = ''; $payer = ''
   $pol = @($Retrieval.evidence | Where-Object { $_.country -eq $Country -or $_.country -eq 'EU' } | Sort-Object score -Descending | Select-Object -First 1)
   if ($pol.Count -gt 0) {
     $days = "$($pol[0].return_days) 天"
+    $daysEn = "$($pol[0].return_days) days"
     if ($pol[0].return_days -eq 'NA' -or [string]::IsNullOrWhiteSpace($pol[0].return_days)) { $days = '' }
     $payer = $pol[0].shipping_payer
   }
 
-  $templates = Get-CandidateTemplates -Intent $Analysis.primary_intent -CountryZh $countryZh -Days $days -Payer $payer
+  $templates = Get-CandidateTemplates -Intent $Analysis.primary_intent -CountryZh $countryZh -CountryEn $countryEn -Days $days -DaysEn $daysEn -Payer $payer
   $candidates = @()
   $i = 0
   foreach ($t in $templates) {

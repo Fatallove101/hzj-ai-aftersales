@@ -23,7 +23,7 @@ $script:EuCountries = @('DE','FR','ES','IT','NL','BE','PL','AT','PT','IE','SE','
 
 $script:CountryZh = @{
   'DE'='德国'; 'ES'='西班牙'; 'FR'='法国'; 'US'='美国'; 'GB'='英国'; 'IT'='意大利'
-  'NL'='荷兰'; 'EU'='欧盟'; 'CN'='中国'; 'AU'='澳大利亚'; 'JP'='日本'; 'ALL'='通用'; 'UNKNOWN'='未知'
+  'NL'='荷兰'; 'EU'='欧盟'; 'CN'='中国'; 'AU'='澳大利亚'; 'JP'='日本'; 'ALL'='通用'; 'UNKNOWN'='当地'
 }
 
 function Initialize-KnowledgeBase {
@@ -249,6 +249,22 @@ function Get-CountryZh {
   param([string]$Code)
   if ($script:CountryZh.ContainsKey($Code)) { return $script:CountryZh[$Code] }
   return $Code
+}
+
+# 英文国家名。为什么要单独一份：
+#   旧代码把**中文**的 $CountryZh 直接拼进英文模板，
+#   于是出现 "this 未知 order" 这种中英混排（UNKNOWN 时最明显）。
+#   UNKNOWN 给 'your market'，让 "of your market" / "in your market" 仍然通顺。
+$script:CountryEn = @{
+  'DE'='Germany'; 'ES'='Spain'; 'FR'='France'; 'US'='the US'; 'GB'='the UK'; 'IT'='Italy'
+  'NL'='the Netherlands'; 'EU'='the EU'; 'CN'='China'; 'AU'='Australia'; 'JP'='Japan'
+  'ALL'='the applicable market'; 'UNKNOWN'='your market'
+}
+
+function Get-CountryEn {
+  param([string]$Code)
+  if ($script:CountryEn.ContainsKey($Code)) { return $script:CountryEn[$Code] }
+  return 'your market'
 }
 
 function Test-RuleCountry {
