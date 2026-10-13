@@ -851,6 +851,20 @@ if (-not $NoBrowser) { try { Start-Process $url | Out-Null } catch {} }
 try {
   while ($true) {
     $client = $listener.AcceptTcpClient()
+
+    # 浏览器的 TCP 预连接会「连上但一个字节都不发」（Chromium 常开 2~3 个备用）。
+    # 直接去 Read 会卡满 ReceiveTimeout —— 而本服务是**单线程**，
+    # 这 30 秒内所有请求全部排队，控制台还会打出
+    #   「请求处理异常：…did not properly respond after a period of time」
+    # 实测：挂一条空闲连接，紧接着的正常请求 12 秒后超时失败。
+    #
+    # 本地 HTTP 请求头是毫秒级到达的，所以先 Poll 等 0.8 秒：
+    # 等不到数据就判定为预连接，直接丢掉，不占用处理时间。
+    # （曾考虑改多线程彻底根治，但那是重写主循环、风险高；这里 0.8 秒足够。）
+    if (-not $client.Client.Poll(800000, [System.Net.Sockets.SelectMode]::SelectRead)) {
+      try { $client.Close() } catch {}
+      continue
+    }
     $client.ReceiveTimeout = 30000
     $client.SendTimeout    = 30000
     $stream = $null
