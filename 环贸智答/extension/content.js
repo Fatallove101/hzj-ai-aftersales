@@ -56,6 +56,9 @@
     busy: false,
     visible: true,
     targetLang: 'en',
+    // 坐席是否手动选过回译语言。没选过时才允许用「识别到的语言」自动覆盖，
+    // 否则每次分析都会把他手动选的英文冲掉。
+    targetLangManual: false,
     country: 'UNKNOWN',
     platform: 'unknown'
   };
@@ -771,7 +774,12 @@
      诚实说明：本地模式没有整句翻译能力，只能给术语级对照；
      接入千帆后 translation.translated_text 会有整段中文译文。 */
   // 语言显示名（编辑器标题栏用）
-  const LANG_LABEL = { en: 'English', es: 'Español', zh: '中文' };
+  // 语种显示名。原来只有 en/es/zh 三种 —— 识别出德语、法语、日语时
+  // 编辑器标题和回译都没有对应语言可用（见 openEditor / doSync）。
+  const LANG_LABEL = {
+    en: 'English', de: 'Deutsch', es: 'Español', fr: 'Français',
+    it: 'Italiano', nl: 'Nederlands', ja: '日本語', zh: '中文'
+  };
   const SPEAKER_ZH = { buyer: '客户', bot: 'AI客服', human: '人工客服' };
 
   function buildChatPane(bd, tr, note) {
@@ -1137,8 +1145,14 @@
      ['AU', '澳大利亚'], ['JP', '日本']]
       .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.country) o.selected = true; cs.appendChild(o); });
     const ls = h('select', { class: 'sel', style: 'flex:1;min-width:88px',
-      onchange: (e) => { state.targetLang = e.target.value; render(); } });
-    [['en', '英文'], ['es', '西语'], ['zh', '中文']]
+      onchange: (e) => {
+        state.targetLang = e.target.value;
+        // 坐席一旦手动指定过语言，后续分析不再自动覆盖他的选择
+        state.targetLangManual = true;
+        render();
+      } });
+    [['en', '英文'], ['de', '德语'], ['es', '西语'], ['fr', '法语'],
+     ['it', '意大利语'], ['nl', '荷兰语'], ['ja', '日语'], ['zh', '中文']]
       .forEach(([v, t]) => { const o = h('option', { value: v, text: t }); if (v === state.targetLang) o.selected = true; ls.appendChild(o); });
     detailBd.appendChild(h('div', { class: 'card' }, [
       h('div', { class: 'sec', text: '读取设置' }),
@@ -1493,6 +1507,19 @@
     state.lastSource = sourceLabel || '页面读取';
     state.readNote = '';   // 有新结果就清掉上一次的提示
     state.lastResult = res.data.result;
+
+    /* 把回译目标语言对齐到「客户实际使用的语言」。
+       ⚠️ 这是「改了中文、同步出来却是英文」那个 bug 的修复点：
+          Agent 早就识别出 detected_lang='de'（见 engine/pipeline.ps1），
+          但扩展从没读过它 —— targetLang 一直是初始的 'en'，
+          点「修改后采纳」回译时就把中文翻成了英文。
+       只在坐席没手动指定过语言时才自动对齐。 */
+    (function () {
+      const r0 = res.data.result;
+      const dl = (r0 && r0.translation && r0.translation.detected_lang)
+              || (r0 && r0.input && r0.input.detected_lang) || '';
+      if (!state.targetLangManual && dl && LANG_LABEL[dl]) state.targetLang = dl;
+    })();
     setStatus(true, '已连接');
     setVisible(true);
     render();

@@ -875,13 +875,24 @@ async function analyzeText(silent) {
 }
 
 /* ---------------- 渲染：候选话术 ---------------- */
-const LANG_LABEL = { en: 'English', es: 'Español', zh: '中文' };
+const LANG_LABEL = { en: 'English', de: 'Deutsch', es: 'Español', fr: 'Français', it: 'Italiano', nl: 'Nederlands', ja: '日本語', zh: '中文' };
 
 function pickText(c, lang) {
   if (lang === 'zh') return { text: c.text_zh, note: '' };
-  if (lang === 'es') {
-    if (c.text_es) return { text: c.text_es, note: '' };
-    return { text: c.text_en, note: '本演示未内置该风格的西语版本，暂以英文代替；接入千帆翻译 Agent 后可自动回译' };
+  if (lang === 'es' && c.text_es) return { text: c.text_es, note: '' };
+
+  /* ⚠️ 关于 text_en 这个字段名：它装的其实是**客户语言**的话术 ——
+     服务端把话术生成 Agent 的 text_target（客户语言）映射到了这个字段
+     （见 engine/pipeline.ps1）。所以：
+       · 选 en/de/fr/ja… 时，回退出来的仍是客户语言的正确版本，不需要提示；
+       · 只有「所选语言不是客户语言、又没有现成版本」才要明确告知，
+         否则坐席会误以为这就是他要的语言。
+     这里刻意不写「以英文代替」—— 那是不准确的旧说法。 */
+  if (lang !== 'en') {
+    return {
+      text: c.text_en,
+      note: '未内置该风格的「' + (LANG_LABEL[lang] || lang) + '」版本，此处暂以客户原文语言代替；接入千帆翻译 Agent 后可自动回译'
+    };
   }
   return { text: c.text_en, note: '' };
 }
