@@ -58,7 +58,7 @@ Unexpected token 'Windows' in expression or statement.
 
 ```powershell
 $b = New-Object System.Text.UTF8Encoding($true)
-Get-ChildItem -Recurse -Filter *.ps1 .\hzj-ai-aftersales | ForEach-Object {
+Get-ChildItem -Recurse -Filter *.ps1 .\环贸智答 | ForEach-Object {
   $t = [System.IO.File]::ReadAllText($_.FullName, (New-Object System.Text.UTF8Encoding($false)))
   [System.IO.File]::WriteAllText($_.FullName, $t, $b)
 }

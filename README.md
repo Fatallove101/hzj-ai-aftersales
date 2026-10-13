@@ -254,7 +254,7 @@
 如果嫌每次开机都要双击 bat 麻烦，装一次自启即可：
 
 ```powershell
-cd hzj-ai-aftersales
+cd 环贸智答
 powershell -ExecutionPolicy Bypass -File tools\autostart.ps1 -Install
 ```
 
@@ -334,7 +334,7 @@ powershell -ExecutionPolicy Bypass -File tools\autostart.ps1 -Uninstall
 ### 1. 复制配置
 
 ```powershell
-cd hzj-ai-aftersales
+cd 环贸智答
 copy config.example.json config.local.json
 ```
 
@@ -403,7 +403,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File server.ps1 -Port 8799
 ## 验证（改完东西一定要跑）
 
 ```powershell
-cd hzj-ai-aftersales
+cd 环贸智答
 
 # 所有 .ps1 必须带 UTF-8 BOM（PS 5.1 否则按 GBK 解码 → 中文全乱 → 语法错）
 powershell -File tools\check-bom.ps1
@@ -472,7 +472,7 @@ powershell -ExecutionPolicy Bypass -File tools\mock-selftest.ps1
 - **视图路由完整性**：每个 `pushView('X')` 必须有对应的 `state.view === 'X'` 分支。
   抓到过 `pushView('picker')` 没有分支 → 点 ⌖ 落回主页。
 - **文档引用检查**：README 里反引号写的项目内路径必须真实存在。
-  目录从 `111` 改名成 `hzj-ai-aftersales` 后，README 里还留着 `cd 111` ——
+  目录从 `111` 改成 `hzj-ai-aftersales`、又改成 `环贸智答` —— 每次改名都留下过文档没跟着改的问题（README 里还留着 `cd 111`）。
   这类过期不会报错，只有人照着做才发现。
 - **CSS class 完整性**：JS 里 `class:'X'` 用到的，CSS 里必须有定义。
   抓到过 `.rawtext`（文本框样式全丢）和 `.ruleitem`。
