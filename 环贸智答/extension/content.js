@@ -59,6 +59,9 @@
     // 坐席是否手动选过回译语言。没选过时才允许用「识别到的语言」自动覆盖，
     // 否则每次分析都会把他手动选的英文冲掉。
     targetLangManual: false,
+    // 用户在首次配置页点了「暂不配置，用本地模式」。
+    // 主界面据此显示常驻提示 —— 不做成一次性 toast，那种关掉就没了。
+    localOnly: false,
     country: 'UNKNOWN',
     platform: 'unknown'
   };
@@ -950,21 +953,31 @@
     const ki = h('input', { type: 'password', autocomplete: 'off',
       placeholder: m.has_key ? '已配置（留空则不改动）' : '粘贴你的 API Key' });
     const kf = h('label', { class: 'fld' });
-    kf.appendChild(h('span', { class: 'lb', text: '百度千帆 API Key' }));
+    // 不写死"百度千帆 API Key" —— 后端只是把 model 名原样发给 endpoint，
+    // 并不限定厂商，填 DeepSeek 等模型的 Key 一样能用。
+    // 括号里的说明用 11px（与卡片标题同号），保持层级清楚。
+    kf.appendChild(h('span', { class: 'lb', html:
+      'API Key<span style="font-size:11px;font-weight:400">（以百度千帆为例）</span>' }));
     kf.appendChild(ki);
     kf.appendChild(h('div', { class: 'hint', html:
-      '控制台 → 千帆 ModelBuilder → 模型服务 → API Key。' +
+      '以百度千帆为例：控制台 → 模型服务 → API Key。其他厂商的 Key 同样可用。' +
       '<span id="setupToggle" style="color:var(--primary);cursor:pointer">显示明文</span>' }));
     fc.appendChild(kf);
 
-    const mi = h('input', { type: 'text', placeholder: 'ernie-4.0-8k-latest' });
+    // placeholder 是灰字示例，不会随表单提交 —— 所以要明确标「例：」，
+    // 免得用户以为已经填好了。
+    // 原来的 ernie-4.0-8k-latest 实测报 account_overdue，不能作为示例。
+    const mi = h('input', { type: 'text', placeholder: '例：ernie-4.5-turbo-128k' });
     mi.value = m.model || '';
     const mf = h('label', { class: 'fld' });
     mf.appendChild(h('span', { class: 'lb', text: '模型名' }));
     mf.appendChild(mi);
+    mf.appendChild(h('div', { class: 'hint', html:
+      '填你要调用的模型名。不同模型的 Key 与地址可能不同，' +
+      '例如 <code>ernie-4.5-turbo-128k</code>、<code>deepseek-v3</code> 等。' }));
     fc.appendChild(mf);
 
-    const ei = h('input', { type: 'text', placeholder: 'https://qianfan.baidubce.com/v2' });
+    const ei = h('input', { type: 'text', placeholder: '例：https://qianfan.baidubce.com/v2' });
     ei.value = m.endpoint || '';
     const ef = h('label', { class: 'fld' });
     ef.appendChild(h('span', { class: 'lb', text: '接口地址（一般不用改）' }));
@@ -973,9 +986,36 @@
 
     const btn = h('button', { class: 'btn pri', text: first ? '保存并开始使用' : '保存' });
     const msgEl = h('div', { class: 'tiny', style: 'margin-top:9px' });
-    btn.onclick = () => saveConfig(ki, mi, ei, btn, msgEl);
+    btn.onclick = () => {
+      // 首次配置必须填 Key。
+      // 之前空着点保存会**静默成功** —— 用户以为配好了，其实进了本地模式，
+      // 话术质量完全不同（固定模板 vs 大模型）。这里明确拦住。
+      if (first && !ki.value.trim()) {
+        msgEl.innerHTML = '<span style="color:var(--danger)">请先填写 API Key；'
+          + '不想填就点右边的「暂不配置，用本地模式」</span>';
+        ki.focus();
+        return;
+      }
+      saveConfig(ki, mi, ei, btn, msgEl);
+    };
 
     const row = h('div', { class: 'row' }, [btn]);
+
+    /* 首次配置多给一条"跳过"的路：不填 Key 也能先用起来（走本地规则引擎）。
+       按钮名必须说清后果 —— 本地模式是固定话术模板 + 术语级对照，
+       **没有整句翻译，也没有政策依据引用**，和配了 Key 完全不是一回事。 */
+    if (first) {
+      const skip = h('button', { class: 'btn', text: '暂不配置，用本地模式' });
+      skip.onclick = () => {
+        state.setupFirstRun = false;
+        state.localOnly = true;
+        resetView();
+        render();
+        renderFooterButtons();
+        toast('已跳过：当前用本地规则引擎，随时可点页脚 🔑 补配 Key');
+      };
+      row.appendChild(skip);
+    }
     if (!first) {
       // 「返回」统一放页脚固定位置，这里不再重复放一个，避免两个返回按钮
       const clr = h('button', { class: 'btn dan', text: '清除 Key' });
@@ -1064,6 +1104,16 @@
     if (state.view === 'edit') { renderEdit(); return; }
     if (state.view === 'picker') { renderPicker(); return; }
     if (state.view === 'settings') { renderSettings(); return; }
+
+    /* 本地模式常驻提示：用户跳过配置 Key 时，必须持续告诉他当前在放弃什么。
+       不做成一次性 toast —— 那种提示关掉就没了，用户下次又不知道为什么
+       话术只有模板、没有翻译。配好 Key 后自动消失。 */
+    if (state.localOnly && !(state.model && state.model.has_key)) {
+      body.appendChild(h('div', { class: 'banner warn', html:
+        '<b>本地模式</b>：未配置 API Key，话术来自本地固定模板 —— '
+        + '<b>没有整句翻译</b>，也没有政策依据引用。<br>'
+        + '<span class="tiny">配好 Key 后自动切换到大模型。点页脚 🔑 配置。</span>' }));
+    }
 
     // 服务状态：把**完整错误**原样打出来，不要藏起来
     if (!state.serverOk) {
