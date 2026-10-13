@@ -169,6 +169,21 @@ function Get-ModelConfig {
     if ($m.PSObject.Properties.Name -contains 'model'    -and $m.model)    { $default.model    = [string]$m.model }
     if ($m.PSObject.Properties.Name -contains 'timeout'  -and $m.timeout)  { $default.timeout  = [int]$m.timeout }
   } catch {}
+
+  # provider=qianfan 时给空值兜底。
+  # 为什么需要：扩展的保存逻辑只在**有值**时才发 model/endpoint
+  # （见 extension/content.js 的 saveConfig）。用户如果只填 API Key，
+  # 这两项会一直是空的 —— 而 Resolve-ChatUrl('') 返回空串，
+  # 于是 POST 到一个空 URL，必然失败，然后静默降级成本地模板，
+  # 界面上完全看不出（只显示「外部大模型」，其实一次都没调通）。
+  # 实测：另一台电脑只填了 Key，就是这个症状。
+  #
+  # 兜底值取千帆公开入口 —— ernie 与托管在千帆上的 deepseek 等模型共用；
+  # 用户想换厂商/换模型，在界面里填上即可覆盖。
+  if ($default.provider -eq 'qianfan') {
+    if ([string]::IsNullOrWhiteSpace($default.endpoint)) { $default.endpoint = 'https://qianfan.baidubce.com/v2' }
+    if ([string]::IsNullOrWhiteSpace($default.model))    { $default.model    = 'ernie-4.5-turbo-128k' }
+  }
   return $default
 }
 
@@ -451,6 +466,11 @@ function Get-ModelStatus {
   return [pscustomobject]@{
     provider        = $cfg.provider
     endpoint_set    = (-not [string]::IsNullOrWhiteSpace($cfg.endpoint))
+    # 把实际地址也返回给界面。
+    # 原来只返回 endpoint_set（布尔），而扩展的配置页读的是 m.endpoint ——
+    # 字段名对不上，导致输入框**永远显示灰色 placeholder**，
+    # 配没配从界面上根本看不出来。接口地址不是密钥，可以回传。
+    endpoint        = $cfg.endpoint
     model           = $cfg.model
     has_key         = $meta.configured
     key_fingerprint = $meta.fingerprint
