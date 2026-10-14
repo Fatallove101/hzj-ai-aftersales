@@ -124,7 +124,7 @@ status         文本    active / seed
 ```
 
 **入库顺序建议**：`policy_kb` → `platform_rule_kb` → `product_kb` → `compliance_kb` → `case_kb`。
-先建前两个，链路就能跑出有意义的结果；`case_kb` 放最后（初期数据稀缺，见申报书风险章节）。
+先建前两个，链路就能跑出有意义的结果；`case_kb` 放最后（初期数据稀缺，见需求文档风险章节）。
 
 > **重要**：`case_kb` 入库前必须完成脱敏，且只入库 `anonymized = true` 的文档。
 > 建议先在本地做一遍正则脱敏 + 人工抽查，再上传。
