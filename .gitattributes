@@ -15,3 +15,9 @@
 *.png   binary
 *.jpg   binary
 *.docx  binary
+
+# Office 二进制（漏了这两个，* text=auto 会对它们做换行符转换并损坏文件）
+*.pptx  binary
+*.xlsx  binary
+*.doc   binary
+*.zip   binary
